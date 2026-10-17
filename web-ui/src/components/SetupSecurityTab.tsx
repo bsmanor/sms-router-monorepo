@@ -22,8 +22,8 @@ export const SetupSecurityTab: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Suggested Cloud Function endpoint URL
-  const projectId = 'sms-router-production';
+  // Production Cloud Function endpoint URL for sms-router-797c4
+  const projectId = 'sms-router-797c4';
   const defaultRegion = 'us-central1';
   const [ingestUrl, setIngestUrl] = useState(
     `https://${defaultRegion}-${projectId}.cloudfunctions.net/ingestSms`

@@ -18,6 +18,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "site": "sms-router",
     "public": "web-ui/dist",
     "ignore": [
       "firebase.json",
