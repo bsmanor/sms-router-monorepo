@@ -1,8 +1,6 @@
 package com.smsrouter.app
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,7 +18,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,8 +40,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,7 +48,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -64,6 +58,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,7 +68,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -96,40 +90,59 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-// Emil Kowalski Design Tokens (Tactile Light Theme)
-private val CanvasBackground = Color(0xFFF8FAFC) // Slate 50
-private val SurfaceCard = Color(0xFFFFFFFF)       // Pure White
-private val SurfaceCardSubtle = Color(0xFFF1F5F9) // Slate 100
-private val StrokeSubtle = Color(0xFFE2E8F0)      // Slate 200
-private val StrokeHover = Color(0xFFCBD5E1)       // Slate 300
-private val TextDark = Color(0xFF0F172A)          // Slate 900
-private val TextMuted = Color(0xFF64748B)         // Slate 500
-private val TextSubtle = Color(0xFF94A3B8)        // Slate 400
-private val AccentPrimary = Color(0xFF0F172A)     // Obsidian Black Button
-private val AccentBlue = Color(0xFF2563EB)        // Royal Blue 600
+// 100% FORCED BRIGHT LIGHT THEME TOKENS (Emil Kowalski Style)
+private val BrightBgCanvas = Color(0xFFF8FAFC)       // Crisp clean off-white
+private val PureWhite = Color(0xFFFFFFFF)            // Pure snow white
+private val BrightSurfaceSubtle = Color(0xFFF1F5F9)  // Soft slate container
+private val BrightBorder = Color(0xFFE2E8F0)         // Subtle 1px outline
+private val BrightBorderFocus = Color(0xFF2563EB)    // Vibrant Blue
+private val BrightTextTitle = Color(0xFF0F172A)      // High contrast deep obsidian
+private val BrightTextBody = Color(0xFF1E293B)       // Sharp legible text
+private val BrightTextMuted = Color(0xFF64748B)      // Calm secondary
+private val BrightTextPlaceholder = Color(0xFF94A3B8)
+private val PrimaryButtonColor = Color(0xFF0F172A)   // Emil signature black button
+private val PrimaryButtonText = Color(0xFFFFFFFF)
 
-// Status & Indicator Tints (Subtle, desaturated background with sharp text)
-private val SuccessBg = Color(0xFFECFDF5)
-private val SuccessBorder = Color(0xFFA7F3D0)
-private val SuccessText = Color(0xFF065F46)
+// Soft Status Badge Tints
+private val MintBg = Color(0xFFECFDF5)
+private val MintBorder = Color(0xFFA7F3D0)
+private val MintText = Color(0xFF047857)
 
-private val PendingBg = Color(0xFFFEF3C7)
-private val PendingBorder = Color(0xFFFDE68A)
-private val PendingText = Color(0xFF92400E)
+private val AmberBg = Color(0xFFFEF3C7)
+private val AmberBorder = Color(0xFFFDE68A)
+private val AmberText = Color(0xFFB45309)
 
-private val RetryingBg = Color(0xFFEFF6FF)
-private val RetryingBorder = Color(0xFFBFDBFE)
-private val RetryingText = Color(0xFF1E40AF)
+private val BlueBg = Color(0xFFEFF6FF)
+private val BlueBorder = Color(0xFFBFDBFE)
+private val BlueText = Color(0xFF1D4ED8)
 
-private val FailedBg = Color(0xFFFFF1F2)
-private val FailedBorder = Color(0xFFFECDD3)
-private val FailedText = Color(0xFF9F1239)
+private val RoseBg = Color(0xFFFFF1F2)
+private val RoseBorder = Color(0xFFFECDD3)
+private val RoseText = Color(0xFFBE123C)
+
+// Explicit Material 3 Light Color Scheme (Overrides system dark mode)
+private val ForcedLightColorScheme = lightColorScheme(
+    primary = PrimaryButtonColor,
+    onPrimary = PrimaryButtonText,
+    primaryContainer = BrightSurfaceSubtle,
+    onPrimaryContainer = BrightTextTitle,
+    secondary = Color(0xFF2563EB),
+    onSecondary = Color.White,
+    background = BrightBgCanvas,
+    onBackground = BrightTextTitle,
+    surface = PureWhite,
+    onSurface = BrightTextTitle,
+    surfaceVariant = BrightSurfaceSubtle,
+    onSurfaceVariant = BrightTextMuted,
+    outline = BrightBorder,
+    outlineVariant = Color(0xFFF1F5F9)
+)
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var storage: StorageManager
     private lateinit var updateManager: UpdateManager
-    private val appVersion = "1.0.1"
+    private val appVersion = "1.0.2"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -139,14 +152,20 @@ class MainActivity : ComponentActivity() {
         updateManager = UpdateManager(this)
 
         setContent {
-            MaterialTheme {
+            // Strictly enforce light color scheme
+            MaterialTheme(colorScheme = ForcedLightColorScheme) {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = CanvasBackground,
+                    containerColor = BrightBgCanvas,
                     contentWindowInsets = WindowInsets.safeDrawing
                 ) { innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)) {
-                        ModernAppScreen(
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(BrightBgCanvas)
+                            .padding(innerPadding)
+                    ) {
+                        BrightAppScreen(
                             storage = storage,
                             updateManager = updateManager,
                             versionName = appVersion,
@@ -220,7 +239,7 @@ class MainActivity : ComponentActivity() {
         }
 
         WorkManager.getInstance(this).enqueue(workRequestBuilder.build())
-        Toast.makeText(this, "Test SMS queued for delivery", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Test SMS payload queued for delivery", Toast.LENGTH_SHORT).show()
     }
 
     private fun retryLogItem(logId: String) {
@@ -256,14 +275,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class NavigationTab {
+enum class BrightTab {
     CONFIG,
     HEALTH,
     LOGS
 }
 
 @Composable
-fun ModernAppScreen(
+fun BrightAppScreen(
     storage: StorageManager,
     updateManager: UpdateManager,
     versionName: String,
@@ -273,7 +292,7 @@ fun ModernAppScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var selectedTab by remember { mutableStateOf(NavigationTab.CONFIG) }
+    var selectedTab by remember { mutableStateOf(BrightTab.CONFIG) }
 
     var config by remember { mutableStateOf(storage.getConfig()) }
     var logs by remember { mutableStateOf(storage.getLogs()) }
@@ -325,91 +344,133 @@ fun ModernAppScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(BrightBgCanvas)
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Top App Bar / Brand Header
+        // PROMINENT APP VERSION & STATUS HERO CARD
         item {
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                colors = CardDefaults.cardColors(containerColor = PureWhite),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, BrightBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(AccentPrimary, shape = RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "SR",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(PrimaryButtonColor, shape = RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("SR", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
 
-                    Column {
-                        Text(
-                            text = "SMS Router",
-                            color = TextDark,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.3).sp
-                        )
-                        Text(
-                            text = "HMAC Signed Gateway",
-                            color = TextMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-
-                // Version Badge with update trigger
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, StrokeSubtle, RoundedCornerShape(20.dp))
-                        .clickable {
-                            coroutineScope.launch {
-                                updateStatus = UpdateStatus.Checking
-                                val res = updateManager.checkForUpdates(versionName)
-                                updateStatus = res
-                                if (res is UpdateStatus.UpToDate) {
-                                    Toast.makeText(context, "You are on the latest version (v$versionName)", Toast.LENGTH_SHORT).show()
-                                }
+                            Column {
+                                Text(
+                                    text = "SMS Router Gateway",
+                                    color = BrightTextTitle,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                )
+                                Text(
+                                    text = "HMAC Signed SMS Interceptor",
+                                    color = BrightTextMuted,
+                                    fontSize = 12.sp
+                                )
                             }
                         }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+
+                        // PROMINENT INSTALLED VERSION BADGE
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .background(SuccessText, shape = CircleShape)
-                        )
-                        Text(
-                            text = "v$versionName",
-                            color = TextDark,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                                .background(MintBg, shape = RoundedCornerShape(8.dp))
+                                .border(1.dp, MintBorder, shape = RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(MintText, shape = CircleShape)
+                                )
+                                Text(
+                                    text = "v$versionName",
+                                    color = MintText,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // ONE-CLICK IN-APP UPDATE ACTION ROW
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(BrightSurfaceSubtle, shape = RoundedCornerShape(10.dp))
+                            .border(1.dp, BrightBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "In-App Self Updater",
+                                color = BrightTextTitle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Installs new updates directly without downloading files",
+                                color = BrightTextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                    updateStatus = UpdateStatus.Checking
+                                    val res = updateManager.checkForUpdates(versionName)
+                                    updateStatus = res
+                                    if (res is UpdateStatus.UpToDate) {
+                                        Toast.makeText(context, "App is already up to date (v$versionName)", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PureWhite),
+                            border = BorderStroke(1.dp, BrightBorder),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Check Update", color = BrightTextTitle, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
 
-        // Animated In-App Self Update Notification
+        // IN-APP AUTO-UPDATE BANNER (Appears when new version is available)
         item {
             AnimatedVisibility(
                 visible = updateStatus !is UpdateStatus.Idle && updateStatus !is UpdateStatus.UpToDate,
@@ -418,18 +479,19 @@ fun ModernAppScreen(
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = RetryingBg),
+                    colors = CardDefaults.cardColors(containerColor = PureWhite),
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, RetryingBorder)
+                    border = BorderStroke(1.5.dp, Color(0xFF3B82F6)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         when (val status = updateStatus) {
                             is UpdateStatus.Checking -> {
-                                Text("Checking for new releases on GitHub...", color = RetryingText, fontSize = 13.sp)
+                                Text("Connecting to GitHub to verify releases...", color = BrightTextBody, fontSize = 13.sp)
                             }
                             is UpdateStatus.UpdateAvailable -> {
-                                Text("New Version v${status.versionName} Available", fontWeight = FontWeight.Bold, color = RetryingText, fontSize = 14.sp)
-                                Text(status.changelog, color = TextDark, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
+                                Text("New Version v${status.versionName} Ready to Install", fontWeight = FontWeight.Bold, color = Color(0xFF1D4ED8), fontSize = 14.sp)
+                                Text(status.changelog, color = BrightTextBody, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Button(
                                     onClick = {
@@ -444,35 +506,35 @@ fun ModernAppScreen(
                                             }
                                         }
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text("Download & Update In-Place", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             is UpdateStatus.Downloading -> {
-                                Text("Downloading APK: $downloadProgress%", color = RetryingText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Downloading Update: $downloadProgress%", color = Color(0xFF1D4ED8), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 LinearProgressIndicator(
                                     progress = downloadProgress / 100f,
                                     modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                                    color = AccentBlue,
+                                    color = Color(0xFF2563EB),
                                     trackColor = Color(0xFFDBEAFE)
                                 )
                             }
                             is UpdateStatus.ReadyToInstall -> {
-                                Text("Update ready to install!", color = SuccessText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Download complete! Ready to update.", color = MintText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Button(
                                     onClick = { updateManager.promptInstall(status.apkFile) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = SuccessText),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MintText),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("Tap to Install Update", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Tap to Install Now", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             is UpdateStatus.Error -> {
-                                Text(status.message, color = FailedText, fontSize = 12.sp)
+                                Text(status.message, color = RoseText, fontSize = 12.sp)
                             }
                             else -> {}
                         }
@@ -481,34 +543,34 @@ fun ModernAppScreen(
             }
         }
 
-        // Tactile Segmented Navigation Bar (Emil Kowalski style)
+        // TACTILE SEGMENTED NAVIGATION PILLS (Emil Kowalski Style)
         item {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceCardSubtle, shape = RoundedCornerShape(12.dp))
-                    .border(1.dp, StrokeSubtle, RoundedCornerShape(12.dp))
+                    .background(PureWhite, shape = RoundedCornerShape(12.dp))
+                    .border(1.dp, BrightBorder, RoundedCornerShape(12.dp))
                     .padding(3.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    ModernSegmentItem(
-                        title = "Gateway",
-                        isSelected = selectedTab == NavigationTab.CONFIG,
+                    BrightSegmentItem(
+                        title = "Gateway Setup",
+                        isSelected = selectedTab == BrightTab.CONFIG,
                         modifier = Modifier.weight(1f),
-                        onClick = { selectedTab = NavigationTab.CONFIG }
+                        onClick = { selectedTab = BrightTab.CONFIG }
                     )
-                    ModernSegmentItem(
+                    BrightSegmentItem(
                         title = "Diagnostics",
-                        isSelected = selectedTab == NavigationTab.HEALTH,
+                        isSelected = selectedTab == BrightTab.HEALTH,
                         modifier = Modifier.weight(1f),
-                        onClick = { selectedTab = NavigationTab.HEALTH }
+                        onClick = { selectedTab = BrightTab.HEALTH }
                     )
-                    ModernSegmentItem(
+                    BrightSegmentItem(
                         title = "Logs (${logs.size})",
-                        isSelected = selectedTab == NavigationTab.LOGS,
+                        isSelected = selectedTab == BrightTab.LOGS,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            selectedTab = NavigationTab.LOGS
+                            selectedTab = BrightTab.LOGS
                             refreshLogs()
                         }
                     )
@@ -516,39 +578,39 @@ fun ModernAppScreen(
             }
         }
 
-        // VIEW 1: GATEWAY CONFIGURATION
-        if (selectedTab == NavigationTab.CONFIG) {
+        // TAB 1: GATEWAY CONFIGURATION
+        if (selectedTab == BrightTab.CONFIG) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                    colors = CardDefaults.cardColors(containerColor = PureWhite),
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, StrokeSubtle),
+                    border = BorderStroke(1.dp, BrightBorder),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "Gateway Configuration",
-                            color = TextDark,
+                            text = "Server Configuration",
+                            color = BrightTextTitle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Connects this phone to your Firebase Functions ingest endpoint",
-                            color = TextMuted,
+                            text = "Configures HTTP POST delivery to your Cloud Function",
+                            color = BrightTextMuted,
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(18.dp))
 
-                        ModernInputField(
+                        BrightInputField(
                             value = endpointUrl,
                             onValueChange = { endpointUrl = it },
-                            label = "Ingest URL",
+                            label = "Webhook Ingest URL",
                             placeholder = "https://<region>-<project>.cloudfunctions.net/ingestSms"
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        ModernInputField(
+                        BrightInputField(
                             value = apiKey,
                             onValueChange = { apiKey = it },
                             label = "API Key (X-API-Key)",
@@ -556,15 +618,15 @@ fun ModernAppScreen(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        ModernInputField(
+                        BrightInputField(
                             value = hmacSecret,
                             onValueChange = { hmacSecret = it },
-                            label = "HMAC Secret Key (X-Signature)",
-                            placeholder = "Secret used to sign raw JSON payload"
+                            label = "HMAC Secret (X-Signature)",
+                            placeholder = "Cryptographic secret for SHA-256 signing"
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        ModernInputField(
+                        BrightInputField(
                             value = deviceId,
                             onValueChange = { deviceId = it },
                             label = "Device Name",
@@ -587,10 +649,10 @@ fun ModernAppScreen(
                                     )
                                     storage.saveConfig(newConfig)
                                     config = newConfig
-                                    Toast.makeText(context, "Configuration saved", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f).height(44.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryButtonColor),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Save Settings", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -603,10 +665,10 @@ fun ModernAppScreen(
                                 },
                                 modifier = Modifier.weight(1f).height(44.dp),
                                 shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, StrokeSubtle),
-                                colors = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceCardSubtle)
+                                border = BorderStroke(1.dp, BrightBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(containerColor = BrightSurfaceSubtle)
                             ) {
-                                Text("Send Test SMS", color = TextDark, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text("Send Test SMS", color = BrightTextTitle, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
                         }
                     }
@@ -614,38 +676,38 @@ fun ModernAppScreen(
             }
         }
 
-        // VIEW 2: SYSTEM HEALTH & PERMISSIONS
-        if (selectedTab == NavigationTab.HEALTH) {
+        // TAB 2: SYSTEM HEALTH & PERMISSIONS
+        if (selectedTab == BrightTab.HEALTH) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                    colors = CardDefaults.cardColors(containerColor = PureWhite),
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, StrokeSubtle),
+                    border = BorderStroke(1.dp, BrightBorder),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "System Permissions & Battery",
-                            color = TextDark,
+                            text = "Permission & Battery Health",
+                            color = BrightTextTitle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Ensure 24/7 background cellular message interception",
-                            color = TextMuted,
+                            text = "Ensures background cellular SMS broadcasts are not blocked",
+                            color = BrightTextMuted,
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(18.dp))
 
-                        ModernPermissionItem(
+                        BrightPermissionItem(
                             title = "RECEIVE_SMS Permission",
                             isGranted = hasSmsPermission,
-                            subtitle = "Intercepts incoming cellular SMS broadcasts"
+                            subtitle = "Intercepts cellular SMS broadcasts"
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        ModernPermissionItem(
+                        BrightPermissionItem(
                             title = "POST_NOTIFICATIONS",
                             isGranted = hasNotificationPermission,
                             subtitle = "Foreground service notification on Android 13+"
@@ -662,7 +724,7 @@ fun ModernAppScreen(
                                     permissionLauncher.launch(perms.toTypedArray())
                                 },
                                 modifier = Modifier.fillMaxWidth().height(42.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PendingText),
+                                colors = ButtonDefaults.buttonColors(containerColor = AmberText),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text("Grant Missing Permissions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -674,27 +736,27 @@ fun ModernAppScreen(
                             onClick = onTriggerBatteryOptimization,
                             modifier = Modifier.fillMaxWidth().height(42.dp),
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, StrokeSubtle),
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceCardSubtle)
+                            border = BorderStroke(1.dp, BrightBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = BrightSurfaceSubtle)
                         ) {
-                            Text("Disable Battery Optimization", color = TextDark, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text("Disable Battery Optimization", color = BrightTextTitle, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Keep-Alive Service Toggle
+                        // Keep-Alive Service Switch
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(SurfaceCardSubtle, shape = RoundedCornerShape(12.dp))
-                                .border(1.dp, StrokeSubtle, RoundedCornerShape(12.dp))
+                                .background(BrightSurfaceSubtle, shape = RoundedCornerShape(12.dp))
+                                .border(1.dp, BrightBorder, RoundedCornerShape(12.dp))
                                 .padding(14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Foreground Keep-Alive Service", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Prevents HyperOS / OneUI from killing the listener", color = TextMuted, fontSize = 11.sp)
+                                Text("Foreground Keep-Alive Service", color = BrightTextTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Prevents HyperOS / OneUI from killing the listener", color = BrightTextMuted, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = isKeepAliveEnabled,
@@ -708,17 +770,17 @@ fun ModernAppScreen(
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = AccentBlue,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = StrokeHover
+                                    checkedThumbColor = PureWhite,
+                                    checkedTrackColor = Color(0xFF2563EB),
+                                    uncheckedThumbColor = PureWhite,
+                                    uncheckedTrackColor = Color(0xFFCBD5E1)
                                 )
                             )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // HyperOS Advice Card
+                        // Xiaomi HyperOS Notice
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -727,7 +789,7 @@ fun ModernAppScreen(
                                 .padding(14.dp)
                         ) {
                             Column {
-                                Text("Xiaomi HyperOS Notice", fontWeight = FontWeight.Bold, color = Color(0xFF713F12), fontSize = 12.sp)
+                                Text("Xiaomi HyperOS Directives", fontWeight = FontWeight.Bold, color = Color(0xFF713F12), fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "• App info -> Enable 'Autostart'\n" +
@@ -745,8 +807,8 @@ fun ModernAppScreen(
             }
         }
 
-        // VIEW 3: SMS QUEUE & LOGS
-        if (selectedTab == NavigationTab.LOGS) {
+        // TAB 3: SMS QUEUE & LOGS
+        if (selectedTab == BrightTab.LOGS) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -755,7 +817,7 @@ fun ModernAppScreen(
                 ) {
                     Text(
                         text = "Recent Cellular Messages",
-                        color = TextDark,
+                        color = BrightTextTitle,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -764,9 +826,10 @@ fun ModernAppScreen(
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp),
                         modifier = Modifier.height(30.dp),
-                        border = BorderStroke(1.dp, StrokeSubtle)
+                        border = BorderStroke(1.dp, BrightBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = PureWhite)
                     ) {
-                        Text("Refresh", fontSize = 11.sp, color = TextDark)
+                        Text("Refresh", fontSize = 11.sp, color = BrightTextTitle)
                     }
                 }
             }
@@ -775,19 +838,19 @@ fun ModernAppScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                        colors = CardDefaults.cardColors(containerColor = PureWhite),
                         shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, StrokeSubtle)
+                        border = BorderStroke(1.dp, BrightBorder)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(36.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("No Intercepted SMS", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 14.sp)
+                            Text("No Intercepted SMS", fontWeight = FontWeight.Bold, color = BrightTextTitle, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 "Incoming messages to your SIM card will appear here and dispatch immediately to Firebase.",
-                                color = TextMuted,
+                                color = BrightTextMuted,
                                 fontSize = 12.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
@@ -796,7 +859,7 @@ fun ModernAppScreen(
                 }
             } else {
                 items(logs, key = { it.id }) { log ->
-                    ModernLogCard(
+                    BrightLogCard(
                         entry = log,
                         onRetry = {
                             onRetryItem(log.id)
@@ -814,17 +877,17 @@ fun ModernAppScreen(
 }
 
 @Composable
-fun ModernSegmentItem(
+fun BrightSegmentItem(
     title: String,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val bg by animateColorAsState(
-        targetValue = if (isSelected) SurfaceCard else Color.Transparent,
+        targetValue = if (isSelected) PrimaryButtonColor else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
     )
-    val textColor by animateColorAsState(if (isSelected) TextDark else TextMuted)
+    val textColor by animateColorAsState(if (isSelected) Color.White else BrightTextMuted)
 
     Box(
         modifier = modifier
@@ -848,7 +911,7 @@ fun ModernSegmentItem(
 }
 
 @Composable
-fun ModernInputField(
+fun BrightInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -857,7 +920,7 @@ fun ModernInputField(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            color = TextDark,
+            color = BrightTextTitle,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 6.dp)
@@ -865,47 +928,47 @@ fun ModernInputField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = { Text(placeholder, fontSize = 12.sp, color = TextSubtle) },
+            placeholder = { Text(placeholder, fontSize = 12.sp, color = BrightTextPlaceholder) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SurfaceCard,
-                unfocusedContainerColor = SurfaceCard,
-                focusedBorderColor = AccentBlue,
-                unfocusedBorderColor = StrokeSubtle,
-                focusedTextColor = TextDark,
-                unfocusedTextColor = TextDark
+                focusedContainerColor = PureWhite,
+                unfocusedContainerColor = PureWhite,
+                focusedBorderColor = BrightBorderFocus,
+                unfocusedBorderColor = BrightBorder,
+                focusedTextColor = BrightTextBody,
+                unfocusedTextColor = BrightTextBody
             )
         )
     }
 }
 
 @Composable
-fun ModernPermissionItem(title: String, isGranted: Boolean, subtitle: String) {
+fun BrightPermissionItem(title: String, isGranted: Boolean, subtitle: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceCardSubtle, shape = RoundedCornerShape(10.dp))
-            .border(1.dp, StrokeSubtle, RoundedCornerShape(10.dp))
+            .background(BrightSurfaceSubtle, shape = RoundedCornerShape(10.dp))
+            .border(1.dp, BrightBorder, RoundedCornerShape(10.dp))
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = TextMuted, fontSize = 11.sp)
+            Text(title, color = BrightTextTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = BrightTextMuted, fontSize = 11.sp)
         }
 
         Box(
             modifier = Modifier
-                .background(if (isGranted) SuccessBg else FailedBg, shape = RoundedCornerShape(6.dp))
-                .border(1.dp, if (isGranted) SuccessBorder else FailedBorder, shape = RoundedCornerShape(6.dp))
+                .background(if (isGranted) MintBg else RoseBg, shape = RoundedCornerShape(6.dp))
+                .border(1.dp, if (isGranted) MintBorder else RoseBorder, shape = RoundedCornerShape(6.dp))
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
                 text = if (isGranted) "GRANTED" else "DENIED",
-                color = if (isGranted) SuccessText else FailedText,
+                color = if (isGranted) MintText else RoseText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -914,7 +977,7 @@ fun ModernPermissionItem(title: String, isGranted: Boolean, subtitle: String) {
 }
 
 @Composable
-fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
+fun BrightLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
     val dateFormat = remember { SimpleDateFormat("HH:mm:ss • dd MMM", Locale.getDefault()) }
     val formattedDate = remember(entry.timestamp) {
         if (entry.timestamp > 0) dateFormat.format(Date(entry.timestamp)) else "N/A"
@@ -922,9 +985,9 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+        colors = CardDefaults.cardColors(containerColor = PureWhite),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, StrokeSubtle),
+        border = BorderStroke(1.dp, BrightBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -935,7 +998,7 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
             ) {
                 Text(
                     text = entry.sender,
-                    color = TextDark,
+                    color = BrightTextTitle,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -946,10 +1009,10 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
                 ) {
                     Text(
                         text = formattedDate,
-                        color = TextSubtle,
+                        color = BrightTextMuted,
                         fontSize = 11.sp
                     )
-                    ModernStatusPill(status = entry.status, httpCode = entry.httpCode)
+                    BrightStatusPill(status = entry.status, httpCode = entry.httpCode)
                 }
             }
 
@@ -957,7 +1020,7 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
 
             Text(
                 text = entry.body,
-                color = Color(0xFF334155),
+                color = BrightTextBody,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
@@ -971,7 +1034,7 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
             ) {
                 Text(
                     text = if (entry.httpCode > 0) "Status: HTTP ${entry.httpCode}" else "Pending delivery",
-                    color = TextSubtle,
+                    color = BrightTextMuted,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
                 )
@@ -982,9 +1045,10 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
                         shape = RoundedCornerShape(6.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                         modifier = Modifier.height(26.dp),
-                        border = BorderStroke(1.dp, StrokeSubtle)
+                        border = BorderStroke(1.dp, BrightBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = BrightSurfaceSubtle)
                     ) {
-                        Text("Retry", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Retry", color = Color(0xFF2563EB), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -993,12 +1057,12 @@ fun ModernLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
 }
 
 @Composable
-fun ModernStatusPill(status: String, httpCode: Int) {
+fun BrightStatusPill(status: String, httpCode: Int) {
     val (bg, border, text) = when (status) {
-        "SUCCESS" -> Triple(SuccessBg, SuccessBorder, SuccessText)
-        "PENDING" -> Triple(PendingBg, PendingBorder, PendingText)
-        "RETRYING" -> Triple(RetryingBg, RetryingBorder, RetryingText)
-        else -> Triple(FailedBg, FailedBorder, FailedText)
+        "SUCCESS" -> Triple(MintBg, MintBorder, MintText)
+        "PENDING" -> Triple(AmberBg, AmberBorder, AmberText)
+        "RETRYING" -> Triple(BlueBg, BlueBorder, BlueText)
+        else -> Triple(RoseBg, RoseBorder, RoseText)
     }
 
     Box(

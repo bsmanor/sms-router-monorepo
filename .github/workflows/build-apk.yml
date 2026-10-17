@@ -36,23 +36,25 @@ jobs:
 
       - name: Build Debug APK with Gradle
         working-directory: ./android-app
-        run: gradle assembleDebug --stacktrace
+        run: |
+          gradle assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v1.0.2.apk
 
-      - name: Upload Debug APK Artifact
+      - name: Upload Named APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sms-router-debug-apk
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: sms-router-v1.0.2-apk
+          path: android-app/app/build/outputs/apk/debug/sms-router-v1.0.2.apk
 
       - name: Publish In-App Update Release on GitHub
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.1
-          name: "SMS Router v1.0.1 (Light Theme & In-App Updater)"
-          body: "Release with Emil Kowalski light theme, edge-to-edge layout, and in-app auto-updating."
+          tag_name: v1.0.2
+          name: "SMS Router v1.0.2 (Bright Theme & Auto Updater)"
+          body: "Release v1.0.2 with forced bright theme (forceDarkAllowed=false), prominent version display, and in-app self-updating."
           draft: false
           prerelease: false
-          files: android-app/app/build/outputs/apk/debug/app-debug.apk
+          files: android-app/app/build/outputs/apk/debug/sms-router-v1.0.2.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
