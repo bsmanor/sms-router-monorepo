@@ -1,0 +1,57 @@
+name: Deploy Web UI to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy_hosting:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'web-ui/package-lock.json'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./web-ui
+        run: npm ci
+
+      - name: Build Web UI
+        working-directory: ./web-ui
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY || 'AIzaSyBw70XRn2hX2A6MHSyY_lrL8BZXqkzjbVU' }}
+          VITE_FIREBASE_AUTH_DOMAIN: 'sms-router-797c4.firebaseapp.com'
+          VITE_FIREBASE_PROJECT_ID: 'sms-router-797c4'
+          VITE_FIREBASE_STORAGE_BUCKET: 'sms-router-797c4.firebasestorage.app'
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '60478932597'
+          VITE_FIREBASE_APP_ID: '1:60478932597:web:2670b041d6a20aac6e1a3c'
+          VITE_FIREBASE_MEASUREMENT_ID: 'G-XTH39XC0LF'
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting (via Service Account)
+        if: env.HAS_SERVICE_ACCOUNT == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SMS_ROUTER_797C4 || secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: sms-router-797c4
+        env:
+          HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SMS_ROUTER_797C4 != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+
+      - name: Deploy to Firebase Hosting (via Firebase CI Token)
+        if: env.HAS_SERVICE_ACCOUNT != 'true' && env.HAS_TOKEN == 'true'
+        run: npx --yes firebase-tools deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}"
+        env:
+          HAS_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SMS_ROUTER_797C4 != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+          HAS_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
