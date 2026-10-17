@@ -30,22 +30,35 @@
             </intent-filter>
         </activity>
 
+        <!-- Layer 1: Static SMS Broadcast Receiver (Clean SMS_RECEIVED filter with priority 999) -->
         <receiver
             android:name=".SmsReceiver"
             android:enabled="true"
-            android:exported="true">
-            <intent-filter android:priority="2147483647">
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-                <action android:name="android.provider.Telephony.SMS_DELIVER" />
-                <action android:name="android.provider.Telephony.DATA_SMS_RECEIVED" />
             </intent-filter>
         </receiver>
 
+        <!-- Layer 2 & 3: Foreground Service hosting Dynamic Receiver + ContentObserver + Inbox Scanner -->
         <service
             android:name=".KeepAliveService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Layer 4: Notification Listener Service for RCS Chats & MIUI-Protected OTPs -->
+        <service
+            android:name=".SmsNotificationListener"
+            android:enabled="true"
+            android:exported="true"
+            android:label="SMS Router RCS &amp; OTP Listener"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -38,23 +38,23 @@ jobs:
         working-directory: ./android-app
         run: |
           gradle assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v1.0.2.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v1.0.3.apk
 
       - name: Upload Named APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sms-router-v1.0.2-apk
-          path: android-app/app/build/outputs/apk/debug/sms-router-v1.0.2.apk
+          name: sms-router-v1.0.3-apk
+          path: android-app/app/build/outputs/apk/debug/sms-router-v1.0.3.apk
 
       - name: Publish In-App Update Release on GitHub
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.2
-          name: "SMS Router v1.0.2 (Bright Theme & Auto Updater)"
-          body: "Release v1.0.2 with forced bright theme (forceDarkAllowed=false), prominent version display, and in-app self-updating."
+          tag_name: v1.0.3
+          name: "SMS Router v1.0.3 (4-Layer Bulletproof SMS & RCS Capture)"
+          body: "Release v1.0.3 with 4-Layer SMS & RCS Interception (Static Priority 999 Broadcast, Foreground Dynamic Receiver, ContentObserver + 4s Inbox DB Scanner, and NotificationListenerService for RCS/MIUI-protected OTPs) + Direct HTTP POST delivery bypassing HyperOS JobScheduler throttling."
           draft: false
           prerelease: false
-          files: android-app/app/build/outputs/apk/debug/sms-router-v1.0.2.apk
+          files: android-app/app/build/outputs/apk/debug/sms-router-v1.0.3.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

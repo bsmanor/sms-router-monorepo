@@ -7,16 +7,7 @@ import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsMessage
 import android.util.Log
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.Data
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
-import androidx.work.WorkRequest
-import java.util.UUID
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class SmsReceiver : BroadcastReceiver() {
 
@@ -30,8 +21,7 @@ class SmsReceiver : BroadcastReceiver() {
         Log.d(TAG, "onReceive triggered with action: $action")
 
         if (Telephony.Sms.Intents.SMS_RECEIVED_ACTION != action &&
-            Telephony.Sms.Intents.SMS_DELIVER_ACTION != action &&
-            Telephony.Sms.Intents.DATA_SMS_RECEIVED_ACTION != action
+            Telephony.Sms.Intents.SMS_DELIVER_ACTION != action
         ) {
             return
         }
@@ -45,7 +35,8 @@ class SmsReceiver : BroadcastReceiver() {
         } ?: extractMessagesFallback(intent)
 
         if (messages.isNullOrEmpty()) {
-            Log.w(TAG, "No SMS messages found in intent extras")
+            Log.w(TAG, "No SMS messages found in intent extras, triggering inbox scan")
+            SmsIngestCoordinator.scanInboxForNewMessages(context)
             return
         }
 
@@ -53,7 +44,13 @@ class SmsReceiver : BroadcastReceiver() {
         val groupedMessages = messages.groupBy {
             it.displayOriginatingAddress ?: it.originatingAddress ?: "UNKNOWN"
         }
-        val storage = StorageManager.getInstance(context)
+
+        val pendingResult = try {
+            goAsync()
+        } catch (e: Exception) {
+            null
+        }
+        val remaining = AtomicInteger(groupedMessages.size)
 
         for ((sender, parts) in groupedMessages) {
             val bodyBuilder = StringBuilder()
@@ -67,49 +64,22 @@ class SmsReceiver : BroadcastReceiver() {
             }
 
             val fullBody = bodyBuilder.toString()
-            val logId = UUID.randomUUID().toString()
 
-            Log.i(TAG, "Intercepted SMS from $sender: ${fullBody.take(40)}...")
-
-            // 3. Save pending entry to local storage
-            val entry = SmsLogEntry(
-                id = logId,
+            SmsIngestCoordinator.ingestAndForward(
+                context = context,
                 sender = sender,
                 body = fullBody,
                 timestamp = timestamp,
-                status = "PENDING",
-                httpCode = 0
+                source = "BROADCAST",
+                onComplete = {
+                    if (remaining.decrementAndGet() <= 0) {
+                        try {
+                            pendingResult?.finish()
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
             )
-            storage.addLog(entry)
-
-            // 4. Enqueue expedited forward worker
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
-
-            val inputData = Data.Builder()
-                .putString(SmsForwardWorker.KEY_LOG_ID, logId)
-                .putString(SmsForwardWorker.KEY_SENDER, sender)
-                .putString(SmsForwardWorker.KEY_BODY, fullBody)
-                .putLong(SmsForwardWorker.KEY_TIMESTAMP, timestamp)
-                .build()
-
-            val workRequestBuilder = OneTimeWorkRequestBuilder<SmsForwardWorker>()
-                .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    WorkRequest.MIN_BACKOFF_MILLIS,
-                    TimeUnit.MILLISECONDS
-                )
-                .setInputData(inputData)
-
-            // Make work expedited so Android doesn't defer execution
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            }
-
-            val workRequest = workRequestBuilder.build()
-            WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
 

@@ -54,12 +54,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,25 +71,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.Data
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
-import androidx.work.WorkRequest
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 // 100% FORCED BRIGHT LIGHT THEME TOKENS (Emil Kowalski Style)
 private val BrightBgCanvas = Color(0xFFF8FAFC)       // Crisp clean off-white
@@ -142,7 +137,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var storage: StorageManager
     private lateinit var updateManager: UpdateManager
-    private val appVersion = "1.0.2"
+    private val appVersion = "1.0.3"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -150,6 +145,12 @@ class MainActivity : ComponentActivity() {
 
         storage = StorageManager.getInstance(this)
         updateManager = UpdateManager(this)
+
+        // Initialize inbox watermark & auto-start 4-Layer KeepAliveService by default
+        storage.getLastInboxTimestamp()
+        if (storage.getConfig().isKeepAliveEnabled) {
+            KeepAliveService.startService(this)
+        }
 
         setContent {
             // Strictly enforce light color scheme
@@ -170,6 +171,7 @@ class MainActivity : ComponentActivity() {
                             updateManager = updateManager,
                             versionName = appVersion,
                             onTriggerBatteryOptimization = { requestIgnoreBatteryOptimization() },
+                            onOpenNotificationAccess = { openNotificationListenerSettings() },
                             onSendTestPayload = { enqueueTestSms() },
                             onRetryItem = { logId -> retryLogItem(logId) }
                         )
@@ -198,80 +200,47 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun openNotificationListenerSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                "Enable 'SMS Router' to capture RCS & MIUI-protected OTPs",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Unable to open Notification Access settings", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun enqueueTestSms() {
         val testSender = "+1 (555) 839-2041"
-        val testBody = "Verification code: 582910. Valid for 10 minutes. Your SMS Router is active."
+        val testBody = "Verification code: 582910. Valid for 10 minutes. Multi-Layer v1.0.3 Active."
         val timestamp = System.currentTimeMillis()
-        val logId = UUID.randomUUID().toString()
 
-        val entry = SmsLogEntry(
-            id = logId,
+        SmsIngestCoordinator.ingestAndForward(
+            context = applicationContext,
             sender = testSender,
             body = testBody,
             timestamp = timestamp,
-            status = "PENDING",
-            httpCode = 0
+            source = "TEST",
+            skipDeduplication = true
         )
-        storage.addLog(entry)
-
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val inputData = Data.Builder()
-            .putString(SmsForwardWorker.KEY_LOG_ID, logId)
-            .putString(SmsForwardWorker.KEY_SENDER, testSender)
-            .putString(SmsForwardWorker.KEY_BODY, testBody)
-            .putLong(SmsForwardWorker.KEY_TIMESTAMP, timestamp)
-            .build()
-
-        val workRequestBuilder = OneTimeWorkRequestBuilder<SmsForwardWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                WorkRequest.MIN_BACKOFF_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-            .setInputData(inputData)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        }
-
-        WorkManager.getInstance(this).enqueue(workRequestBuilder.build())
-        Toast.makeText(this, "Test SMS payload queued for delivery", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Test SMS dispatched via direct HTTP engine", Toast.LENGTH_SHORT).show()
     }
 
     private fun retryLogItem(logId: String) {
         val entry = storage.getLog(logId) ?: return
-        storage.updateLogStatus(logId, "PENDING", 0)
-
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val inputData = Data.Builder()
-            .putString(SmsForwardWorker.KEY_LOG_ID, logId)
-            .putString(SmsForwardWorker.KEY_SENDER, entry.sender)
-            .putString(SmsForwardWorker.KEY_BODY, entry.body)
-            .putLong(SmsForwardWorker.KEY_TIMESTAMP, entry.timestamp)
-            .build()
-
-        val workRequestBuilder = OneTimeWorkRequestBuilder<SmsForwardWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                WorkRequest.MIN_BACKOFF_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-            .setInputData(inputData)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        }
-
-        WorkManager.getInstance(this).enqueue(workRequestBuilder.build())
-        Toast.makeText(this, "Retrying payload delivery...", Toast.LENGTH_SHORT).show()
+        SmsIngestCoordinator.ingestAndForward(
+            context = applicationContext,
+            sender = entry.sender,
+            body = entry.body,
+            timestamp = entry.timestamp,
+            source = entry.source,
+            skipDeduplication = true
+        )
+        Toast.makeText(this, "Retrying direct HTTP delivery...", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -287,10 +256,12 @@ fun BrightAppScreen(
     updateManager: UpdateManager,
     versionName: String,
     onTriggerBatteryOptimization: () -> Unit,
+    onOpenNotificationAccess: () -> Unit,
     onSendTestPayload: () -> Unit,
     onRetryItem: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(BrightTab.CONFIG) }
 
@@ -306,34 +277,59 @@ fun BrightAppScreen(
     var updateStatus by remember { mutableStateOf<UpdateStatus>(UpdateStatus.Idle) }
     var downloadProgress by remember { mutableStateOf(0) }
 
-    var hasSmsPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.RECEIVE_SMS
-            ) == PackageManager.PERMISSION_GRANTED
-        )
+    fun checkReceiveSms(): Boolean = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.RECEIVE_SMS
+    ) == PackageManager.PERMISSION_GRANTED
+
+    fun checkReadSms(): Boolean = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.READ_SMS
+    ) == PackageManager.PERMISSION_GRANTED
+
+    fun checkPostNotif(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    } else true
+
+    var hasReceiveSmsPermission by remember { mutableStateOf(checkReceiveSms()) }
+    var hasReadSmsPermission by remember { mutableStateOf(checkReadSms()) }
+    var hasNotificationPermission by remember { mutableStateOf(checkPostNotif()) }
+    var hasNotificationListenerAccess by remember {
+        mutableStateOf(SmsNotificationListener.isNotificationAccessEnabled(context))
     }
 
-    var hasNotificationPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
+    // Re-check permissions and notification access whenever user returns from Settings
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasReceiveSmsPermission = checkReceiveSms()
+                hasReadSmsPermission = checkReadSms()
+                hasNotificationPermission = checkPostNotif()
+                hasNotificationListenerAccess = SmsNotificationListener.isNotificationAccessEnabled(context)
+                logs = storage.getLogs()
             }
-        )
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Live auto-refresh logs while app is open
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(2500L)
+            logs = storage.getLogs()
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        hasSmsPermission = results[Manifest.permission.RECEIVE_SMS] ?: hasSmsPermission
+        hasReceiveSmsPermission = results[Manifest.permission.RECEIVE_SMS] ?: checkReceiveSms()
+        hasReadSmsPermission = results[Manifest.permission.READ_SMS] ?: checkReadSms()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            hasNotificationPermission = results[Manifest.permission.POST_NOTIFICATIONS] ?: hasNotificationPermission
+            hasNotificationPermission = results[Manifest.permission.POST_NOTIFICATIONS] ?: checkPostNotif()
         }
     }
 
@@ -386,7 +382,7 @@ fun BrightAppScreen(
                                     letterSpacing = (-0.3).sp
                                 )
                                 Text(
-                                    text = "HMAC Signed SMS Interceptor",
+                                    text = "4-Layer SMS & RCS Interceptor",
                                     color = BrightTextMuted,
                                     fontSize = 12.sp
                                 )
@@ -596,7 +592,7 @@ fun BrightAppScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Configures HTTP POST delivery to your Cloud Function",
+                            text = "Configures instant HTTP POST delivery to your Cloud Function",
                             color = BrightTextMuted,
                             fontSize = 12.sp
                         )
@@ -676,7 +672,7 @@ fun BrightAppScreen(
             }
         }
 
-        // TAB 2: SYSTEM HEALTH & PERMISSIONS
+        // TAB 2: SYSTEM HEALTH & 4-LAYER CAPTURE ENGINE
         if (selectedTab == BrightTab.HEALTH) {
             item {
                 Card(
@@ -688,36 +684,53 @@ fun BrightAppScreen(
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "Permission & Battery Health",
+                            text = "4-Layer SMS & RCS Capture Status",
                             color = BrightTextTitle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Ensures background cellular SMS broadcasts are not blocked",
+                            text = "Multi-layer defense against Xiaomi HyperOS broadcast blocking & RCS",
                             color = BrightTextMuted,
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(18.dp))
 
                         BrightPermissionItem(
-                            title = "RECEIVE_SMS Permission",
-                            isGranted = hasSmsPermission,
-                            subtitle = "Intercepts cellular SMS broadcasts"
+                            title = "Layer 1 & 2: RECEIVE_SMS Broadcast",
+                            isGranted = hasReceiveSmsPermission,
+                            subtitle = "Static + Foreground Dynamic SMS_RECEIVED receiver"
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        BrightPermissionItem(
+                            title = "Layer 3: READ_SMS Inbox Observer",
+                            isGranted = hasReadSmsPermission,
+                            subtitle = "Watches content://sms/inbox when MIUI blocks broadcasts"
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        BrightPermissionItem(
+                            title = "Layer 4: Notification Listener (RCS & OTP)",
+                            isGranted = hasNotificationListenerAccess,
+                            subtitle = "Captures Google Messages RCS chats & MIUI-protected OTPs"
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
                         BrightPermissionItem(
                             title = "POST_NOTIFICATIONS",
                             isGranted = hasNotificationPermission,
-                            subtitle = "Foreground service notification on Android 13+"
+                            subtitle = "Keeps 4-Layer Foreground Service persistent"
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        if (!hasSmsPermission || !hasNotificationPermission) {
+                        if (!hasReceiveSmsPermission || !hasReadSmsPermission || !hasNotificationPermission) {
                             Button(
                                 onClick = {
-                                    val perms = mutableListOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
+                                    val perms = mutableListOf(
+                                        Manifest.permission.RECEIVE_SMS,
+                                        Manifest.permission.READ_SMS
+                                    )
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         perms.add(Manifest.permission.POST_NOTIFICATIONS)
                                     }
@@ -727,10 +740,29 @@ fun BrightAppScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = AmberText),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Grant Missing Permissions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Grant Missing Runtime Permissions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                         }
+
+                        Button(
+                            onClick = onOpenNotificationAccess,
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasNotificationListenerAccess) BrightSurfaceSubtle else Color(0xFF2563EB)
+                            ),
+                            border = if (hasNotificationListenerAccess) BorderStroke(1.dp, BrightBorder) else null,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (hasNotificationListenerAccess) "Configure Notification Listener (Active)" else "Enable Notification Access (Fixes RCS & HyperOS OTP)",
+                                color = if (hasNotificationListenerAccess) BrightTextTitle else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         OutlinedButton(
                             onClick = onTriggerBatteryOptimization,
@@ -755,8 +787,8 @@ fun BrightAppScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Foreground Keep-Alive Service", color = BrightTextTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Prevents HyperOS / OneUI from killing the listener", color = BrightTextMuted, fontSize = 11.sp)
+                                Text("4-Layer Foreground Engine", color = BrightTextTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Runs Dynamic Receiver + ContentObserver + 4s Inbox Poller", color = BrightTextMuted, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = isKeepAliveEnabled,
@@ -789,13 +821,12 @@ fun BrightAppScreen(
                                 .padding(14.dp)
                         ) {
                             Column {
-                                Text("Xiaomi HyperOS Directives", fontWeight = FontWeight.Bold, color = Color(0xFF713F12), fontSize = 12.sp)
+                                Text("Xiaomi 15T Pro (HyperOS) Checklist", fontWeight = FontWeight.Bold, color = Color(0xFF713F12), fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "• App info -> Enable 'Autostart'\n" +
-                                            "• Battery Saver -> Set to 'No Restrictions'\n" +
-                                            "• Other permissions -> Allow 'Service SMS' & 'Receive SMS'\n" +
-                                            "• Note: RCS chat messages bypass cellular SMS. Use real 2FA texts or disable RCS to test.",
+                                    text = "1. Tap 'Enable Notification Access' above and toggle ON SMS Router (if Android says 'Restricted setting', open App Info -> 3 dots top-right -> 'Allow restricted settings').\n" +
+                                            "2. In App Info -> Other permissions -> Enable 'Read SMS' & 'Service SMS'.\n" +
+                                            "3. Enable 'Autostart' and set Battery Saver to 'No restrictions'.",
                                     color = Color(0xFF854D0E),
                                     fontSize = 11.sp,
                                     lineHeight = 16.sp
@@ -816,20 +847,46 @@ fun BrightAppScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recent Cellular Messages",
+                        text = "Captured Messages",
                         color = BrightTextTitle,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    OutlinedButton(
-                        onClick = { refreshLogs() },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp),
-                        modifier = Modifier.height(30.dp),
-                        border = BorderStroke(1.dp, BrightBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = PureWhite)
-                    ) {
-                        Text("Refresh", fontSize = 11.sp, color = BrightTextTitle)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val count = SmsIngestCoordinator.scanInboxForNewMessages(
+                                        context.applicationContext,
+                                        manualForceLatest = true
+                                    )
+                                    refreshLogs()
+                                    Toast.makeText(
+                                        context,
+                                        if (count > 0) "Synced $count message(s) from Inbox DB" else "Scanned Inbox DB (latest message checked)",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(30.dp),
+                            border = BorderStroke(1.dp, BlueBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = BlueBg)
+                        ) {
+                            Text("Sync Inbox DB", fontSize = 11.sp, color = BlueText, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { refreshLogs() },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                            modifier = Modifier.height(30.dp),
+                            border = BorderStroke(1.dp, BrightBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = PureWhite)
+                        ) {
+                            Text("Refresh", fontSize = 11.sp, color = BrightTextTitle)
+                        }
                     }
                 }
             }
@@ -846,10 +903,10 @@ fun BrightAppScreen(
                             modifier = Modifier.fillMaxWidth().padding(36.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("No Intercepted SMS", fontWeight = FontWeight.Bold, color = BrightTextTitle, fontSize = 14.sp)
+                            Text("No Intercepted Messages Yet", fontWeight = FontWeight.Bold, color = BrightTextTitle, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "Incoming messages to your SIM card will appear here and dispatch immediately to Firebase.",
+                                "Incoming SMS, RCS chats, or Inbox DB messages will appear here and dispatch immediately to Firebase.",
                                 color = BrightTextMuted,
                                 fontSize = 12.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -967,7 +1024,7 @@ fun BrightPermissionItem(title: String, isGranted: Boolean, subtitle: String) {
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
-                text = if (isGranted) "GRANTED" else "DENIED",
+                text = if (isGranted) "ACTIVE" else "NEEDED",
                 color = if (isGranted) MintText else RoseText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
@@ -996,12 +1053,32 @@ fun BrightLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = entry.sender,
-                    color = BrightTextTitle,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = entry.sender,
+                        color = BrightTextTitle,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(BrightSurfaceSubtle, shape = RoundedCornerShape(4.dp))
+                            .border(1.dp, BrightBorder, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = entry.source,
+                            color = BrightTextMuted,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1012,7 +1089,7 @@ fun BrightLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
                         color = BrightTextMuted,
                         fontSize = 11.sp
                     )
-                    BrightStatusPill(status = entry.status, httpCode = entry.httpCode)
+                    BrightStatusPill(status = entry.status)
                 }
             }
 
@@ -1033,7 +1110,7 @@ fun BrightLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (entry.httpCode > 0) "Status: HTTP ${entry.httpCode}" else "Pending delivery",
+                    text = if (entry.httpCode > 0) "Status: HTTP ${entry.httpCode}" else "Direct HTTP Dispatch...",
                     color = BrightTextMuted,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
@@ -1057,7 +1134,7 @@ fun BrightLogCard(entry: SmsLogEntry, onRetry: () -> Unit) {
 }
 
 @Composable
-fun BrightStatusPill(status: String, httpCode: Int) {
+fun BrightStatusPill(status: String) {
     val (bg, border, text) = when (status) {
         "SUCCESS" -> Triple(MintBg, MintBorder, MintText)
         "PENDING" -> Triple(AmberBg, AmberBorder, AmberText)
