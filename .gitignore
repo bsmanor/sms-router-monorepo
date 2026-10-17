@@ -1,0 +1,38 @@
+# Monorepo .gitignore
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Build artifacts
+dist/
+lib/
+build/
+*.apk
+*.aab
+
+# Android & Gradle
+.gradle/
+local.properties
+.idea/
+*.iml
+.cxx/
+captures/
+*.hprof
+
+# Firebase logs & cache
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Environment & Local secrets
+.env
+.env.local
+.env.*.local
+*.local
+
+# System & OS
+.DS_Store
+Thumbs.db

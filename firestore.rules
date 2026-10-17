@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: rules
+    // Document ID: {doc}
+    // Description: SMS routing rules and filtering configurations
+    //
+    // Collection: sms_logs
+    // Document ID: {doc}
+    // Description: Received and routed SMS transaction logs
+    //
+    // Collection: settings
+    // Document ID: {doc}
+    // Description: System, device, and application settings
+    //
+    // All other collections and subcollections: Access denied by default
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    /// Check if the incoming request is authenticated with Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Deny all access across the database by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow authenticated access to rules documents
+    match /rules/{doc} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Allow authenticated access to SMS logs documents
+    match /sms_logs/{doc} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Allow authenticated access to settings documents
+    match /settings/{doc} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

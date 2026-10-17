@@ -1,0 +1,55 @@
+export type ConditionType = 'ANY' | 'EXACT' | 'CONTAINS' | 'REGEX';
+
+export interface RuleCondition {
+  type: ConditionType;
+  value?: string;
+}
+
+export interface RegexExtractor {
+  key: string;
+  pattern: string;
+}
+
+export interface RoutingRule {
+  id: string;
+  name: string;
+  priority: number;
+  isActive: boolean;
+  stopOnMatch: boolean;
+  senderCondition: RuleCondition;
+  bodyCondition: RuleCondition;
+  regexExtractors: RegexExtractor[];
+  targetUrl: string;
+  httpMethod: 'POST' | 'PUT' | 'GET';
+  customHeaders: string;
+  payloadTemplate: string;
+}
+
+export interface RuleExecutionResult {
+  ruleId: string;
+  ruleName: string;
+  targetUrl: string;
+  httpMethod: string;
+  dispatchedPayload: string;
+  httpStatus: number;
+  responseBody: string;
+  latencyMs: number;
+  success: boolean;
+  error: string | null;
+}
+
+export interface SmsLogDocument {
+  id: string;
+  receivedAt: number;
+  deviceId: string;
+  sender: string;
+  body: string;
+  matchedRules: RuleExecutionResult[];
+  status: 'PROCESSED' | 'PARTIAL_FAILURE' | 'NO_MATCH' | 'INVALID_SIGNATURE' | 'AUTH_ERROR';
+}
+
+export interface SecuritySettings {
+  apiKey: string;
+  hmacSecret: string;
+  updatedAt?: number;
+}
