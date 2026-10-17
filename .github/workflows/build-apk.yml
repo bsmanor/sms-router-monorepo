@@ -7,6 +7,9 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Debug APK
@@ -40,3 +43,16 @@ jobs:
         with:
           name: sms-router-debug-apk
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish In-App Update Release on GitHub
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.1
+          name: "SMS Router v1.0.1 (Light Theme & In-App Updater)"
+          body: "Release with Emil Kowalski light theme, edge-to-edge layout, and in-app auto-updating."
+          draft: false
+          prerelease: false
+          files: android-app/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
