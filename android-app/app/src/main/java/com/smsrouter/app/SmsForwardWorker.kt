@@ -117,4 +117,17 @@ class SmsForwardWorker(
             Result.failure()
         }
     }
+
+    override suspend fun getForegroundInfo(): androidx.work.ForegroundInfo {
+        val notification = androidx.core.app.NotificationCompat.Builder(
+            applicationContext,
+            KeepAliveService.CHANNEL_ID
+        )
+            .setContentTitle("SMS Router")
+            .setContentText("Forwarding SMS payload...")
+            .setSmallIcon(R.drawable.ic_launcher_vector)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+            .build()
+        return androidx.work.ForegroundInfo(1002, notification)
+    }
 }
