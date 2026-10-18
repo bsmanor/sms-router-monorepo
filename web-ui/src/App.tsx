@@ -6,30 +6,37 @@ import {
   User
 } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
+import { ThemeProvider, useTheme, ThemePreference } from './context/ThemeContext';
 import { LiveLogsTab } from './components/LiveLogsTab';
 import { RulesManagerTab } from './components/RulesManagerTab';
 import { SimulatorTab } from './components/SimulatorTab';
 import { SetupSecurityTab } from './components/SetupSecurityTab';
+import { ArchitectureTab } from './components/ArchitectureTab';
+import { Card, Badge, Button } from './components/ui/Primitives';
 import {
   Radio,
   Sliders,
   PlaySquare,
   KeyRound,
   LogOut,
-  LogIn,
-  Shield,
   Smartphone,
   ExternalLink,
-  ChevronRight
+  Sun,
+  Moon,
+  Laptop,
+  Layers,
+  GitBranch
 } from 'lucide-react';
 
-type Tab = 'logs' | 'rules' | 'simulator' | 'security';
+type Tab = 'logs' | 'rules' | 'simulator' | 'security' | 'architecture';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [currentTab, setCurrentTab] = useState<Tab>('logs');
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -59,9 +66,9 @@ export const App: React.FC = () => {
 
   if (loadingAuth) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-canvas flex items-center justify-center text-content-muted">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
           <span className="text-sm font-medium">Authenticating gateway session...</span>
         </div>
       </div>
@@ -71,30 +78,65 @@ export const App: React.FC = () => {
   // Authentication Gate Screen
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
-          <div className="w-16 h-16 bg-sky-950 text-sky-400 border border-sky-800 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-sky-950/50">
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4">
+        {/* Top bar with theme toggle even on login gate */}
+        <div className="absolute top-4 right-4">
+          <div className="flex items-center bg-surface border border-line-subtle rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setTheme('light')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${
+                theme === 'light' ? 'bg-surface-subtle text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              }`}
+              title="Light Mode"
+            >
+              <Sun className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${
+                theme === 'dark' ? 'bg-surface-subtle text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              }`}
+              title="Dark Mode"
+            >
+              <Moon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setTheme('system')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${
+                theme === 'system' ? 'bg-surface-subtle text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              }`}
+              title="System Mode"
+            >
+              <Laptop className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <Card className="max-w-md w-full text-center space-y-6 shadow-xl p-8">
+          <div className="w-16 h-16 bg-brand-subtle text-brand border border-brand-border rounded-2xl flex items-center justify-center mx-auto shadow-md">
             <Radio className="w-8 h-8" />
           </div>
 
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl font-extrabold text-content-primary tracking-tight">
               SMS Router Gateway
             </h1>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              Authenticate with your Google account to access incoming SMS logs, configure routing rules, and manage device pairing keys.
+            <p className="text-xs text-content-muted mt-2 leading-relaxed">
+              Authenticate with your Google account to access real-time SMS logs, configure routing rules, and manage device pairing keys.
             </p>
           </div>
 
           {authError && (
-            <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 text-left">
+            <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded-xl text-xs text-status-danger-text text-left font-semibold">
               {authError}
             </div>
           )}
 
-          <button
+          <Button
             onClick={handleGoogleSignIn}
-            className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition-colors shadow-lg"
+            variant="secondary"
+            size="lg"
+            className="w-full shadow-sm hover:border-line-focus"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -115,84 +157,132 @@ export const App: React.FC = () => {
               />
             </svg>
             <span>Sign In with Google</span>
-          </button>
+          </Button>
 
-          <div className="pt-4 border-t border-slate-800 text-[11px] text-slate-500">
+          <div className="pt-4 border-t border-line-subtle text-[11px] text-content-muted">
             Protected by Cloud Firestore Security Rules (Auth required)
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   // Authenticated Dashboard
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-      {/* Navigation Bar */}
-      <header className="bg-slate-950/80 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+    <div className="min-h-screen bg-canvas text-content-primary flex flex-col transition-colors duration-200">
+      {/* Navigation Header */}
+      <header className="bg-surface/90 border-b border-line-subtle sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Project Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-sky-950 text-sky-400 border border-sky-800 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-brand-subtle text-brand border border-brand-border rounded-xl flex items-center justify-center shrink-0">
               <Radio className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-white text-base tracking-tight block">
-                SMS Router Gateway
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                Production Dashboard v1.0
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-content-primary text-base tracking-tight block">
+                  SMS Router Gateway
+                </span>
+                <Badge tone="brand">v2.0</Badge>
+              </div>
+              <span className="text-[11px] text-content-muted font-mono">
+                Full-Stack Operations & Telemetry Console
               </span>
             </div>
           </div>
 
-          {/* User Profile & Sign Out */}
+          {/* Quick APK Link, Theme Switcher & User Profile */}
           <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/bsmanor/sms-router-monorepo/releases"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden md:inline-flex"
+            >
+              <Button variant="secondary" size="sm">
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Download APK</span>
+              </Button>
+            </a>
+
+            {/* Segmented Theme Switcher */}
+            <div className="flex items-center bg-surface-subtle border border-line-subtle rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setTheme('light')}
+                className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  theme === 'light' ? 'bg-surface text-brand shadow-sm font-bold' : 'text-content-muted hover:text-content-primary'
+                }`}
+                title="Light Mode"
+              >
+                <Sun className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  theme === 'dark' ? 'bg-surface text-brand shadow-sm font-bold' : 'text-content-muted hover:text-content-primary'
+                }`}
+                title="Dark Mode"
+              >
+                <Moon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  theme === 'system' ? 'bg-surface text-brand shadow-sm font-bold' : 'text-content-muted hover:text-content-primary'
+                }`}
+                title="System Mode"
+              >
+                <Laptop className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* User Profile */}
             <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-semibold text-white">{user.displayName || user.email}</span>
-              <span className="text-[10px] text-emerald-400 font-mono">Authenticated</span>
+              <span className="text-xs font-semibold text-content-primary">{user.displayName || user.email}</span>
+              <span className="text-[10px] text-status-success-text font-mono font-semibold">Active Session</span>
             </div>
             {user.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName || 'Avatar'}
-                className="w-8 h-8 rounded-full border border-slate-700"
+                className="w-8 h-8 rounded-full border border-line-subtle"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-sky-400">
+              <div className="w-8 h-8 rounded-full bg-brand-subtle text-brand border border-brand-border flex items-center justify-center text-xs font-bold">
                 {(user.email || 'U')[0].toUpperCase()}
               </div>
             )}
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleSignOut}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-4 border-t border-slate-900/50">
+        {/* Tab Navigation Strip */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-4 border-t border-line-subtle overflow-x-auto">
           <button
             onClick={() => setCurrentTab('logs')}
-            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               currentTab === 'logs'
-                ? 'border-sky-500 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
             }`}
           >
             <Radio className="w-4 h-4" />
-            <span>Live Logs</span>
+            <span>Live Telemetry & Logs</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('rules')}
-            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               currentTab === 'rules'
-                ? 'border-sky-500 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
             }`}
           >
             <Sliders className="w-4 h-4" />
@@ -201,26 +291,38 @@ export const App: React.FC = () => {
 
           <button
             onClick={() => setCurrentTab('simulator')}
-            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               currentTab === 'simulator'
-                ? 'border-sky-500 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
             }`}
           >
             <PlaySquare className="w-4 h-4" />
-            <span>Rule Simulator</span>
+            <span>Rule & Regex Lab</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('security')}
-            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               currentTab === 'security'
-                ? 'border-sky-500 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
             }`}
           >
             <KeyRound className="w-4 h-4" />
-            <span>Device Setup & Keys</span>
+            <span>Device Pairing & Keys</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('architecture')}
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              currentTab === 'architecture'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Architecture & Ecosystem</span>
           </button>
         </div>
       </header>
@@ -231,13 +333,45 @@ export const App: React.FC = () => {
         {currentTab === 'rules' && <RulesManagerTab />}
         {currentTab === 'simulator' && <SimulatorTab />}
         {currentTab === 'security' && <SetupSecurityTab />}
+        {currentTab === 'architecture' && <ArchitectureTab />}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        SMS Router Gateway • Monorepo Architecture with Jetpack Compose & Firebase Functions v2
+      <footer className="border-t border-line-subtle bg-surface py-5 text-center text-xs text-content-muted">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span>SMS Router Gateway • Monorepo Architecture (Android + Firebase Functions v2 + React)</span>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/bsmanor/sms-router-monorepo"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-content-primary inline-flex items-center gap-1"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>GitHub</span>
+            </a>
+            <span>•</span>
+            <a
+              href="https://sms-router.web.app"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-content-primary inline-flex items-center gap-1"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Production Site</span>
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

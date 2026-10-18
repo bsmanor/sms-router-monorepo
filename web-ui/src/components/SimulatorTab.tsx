@@ -11,6 +11,7 @@ import {
   Terminal,
   Send
 } from 'lucide-react';
+import { Card, CardHeader, Badge, Button, Input, Textarea } from './ui/Primitives';
 
 interface SimulationItem {
   ruleId: string;
@@ -92,19 +93,26 @@ export const SimulatorTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-sky-400" />
-          <span>Interactive Rule & Webhook Simulator</span>
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Test SMS patterns, debug regular expressions, and preview rendered JSON payloads without deploying an Android build.
-        </p>
-      </div>
+      <Card>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-brand-subtle text-brand border border-brand-border flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-content-primary flex items-center gap-2">
+              <span>Rule & Regex Evaluation Lab</span>
+              <Badge tone="brand">Interactive Sandbox</Badge>
+            </h2>
+            <p className="text-xs text-content-muted">
+              Test SMS patterns, debug regular expressions, and preview rendered JSON payloads without deploying an Android build.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Preset Buttons */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-slate-400 mr-2">Quick Presets:</span>
+        <span className="text-xs text-content-muted mr-2 font-medium">Quick Presets:</span>
         <button
           onClick={() =>
             setPreset(
@@ -113,7 +121,7 @@ export const SimulatorTab: React.FC = () => {
               '\\b(\\d{6})\\b'
             )
           }
-          className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg text-xs border border-slate-700 font-medium"
+          className="px-3 py-1 bg-surface border border-line-subtle hover:bg-surface-subtle text-brand rounded-xl text-xs font-semibold transition-colors"
         >
           6-Digit 2FA Code
         </button>
@@ -125,7 +133,7 @@ export const SimulatorTab: React.FC = () => {
               'from IP ([0-9.]+)'
             )
           }
-          className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg text-xs border border-slate-700 font-medium"
+          className="px-3 py-1 bg-surface border border-line-subtle hover:bg-surface-subtle text-brand rounded-xl text-xs font-semibold transition-colors"
         >
           Security Alert + IP
         </button>
@@ -137,7 +145,7 @@ export const SimulatorTab: React.FC = () => {
               '#([A-Z0-9]+)'
             )
           }
-          className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg text-xs border border-slate-700 font-medium"
+          className="px-3 py-1 bg-surface border border-line-subtle hover:bg-surface-subtle text-brand rounded-xl text-xs font-semibold transition-colors"
         >
           Tracking Number
         </button>
@@ -146,26 +154,29 @@ export const SimulatorTab: React.FC = () => {
       {/* Input Form & Local Regex Tester */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Test SMS Data */}
-        <div className="lg:col-span-2 bg-slate-800/60 p-5 rounded-xl border border-slate-700 space-y-4">
-          <h3 className="text-sm font-bold text-white">Simulated SMS Message</h3>
+        <Card className="lg:col-span-2 space-y-4">
+          <CardHeader
+            title="Simulated Inbound Message"
+            subtitle="Payload passed to Firebase Cloud Function simulateRules"
+          />
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-semibold">Originating Sender Address</label>
-            <input
+            <label className="text-xs text-content-primary font-semibold">Originating Sender Address</label>
+            <Input
               type="text"
               value={sender}
               onChange={(e) => setSender(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+              className="font-mono text-xs"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-semibold">SMS Message Body</label>
-            <textarea
+            <label className="text-xs text-content-primary font-semibold">SMS Message Body</label>
+            <Textarea
               rows={4}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+              className="font-mono text-xs"
             />
           </div>
 
@@ -175,115 +186,105 @@ export const SimulatorTab: React.FC = () => {
                 type="checkbox"
                 checked={liveDispatch}
                 onChange={(e) => setLiveDispatch(e.target.checked)}
-                className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0"
+                className="rounded bg-surface-subtle border-line-subtle text-brand focus:ring-0"
               />
-              <span className="text-xs font-semibold text-amber-400">
+              <span className="text-xs font-semibold text-status-warning-text">
                 Live Dispatch (Fire real HTTP requests to destination URLs)
               </span>
             </label>
 
-            <button
+            <Button
               disabled={simulating}
+              variant="brand"
+              size="md"
               onClick={handleRunSimulation}
-              className="bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white px-5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-sky-900/40"
             >
               <Play className="w-4 h-4 fill-current" />
-              {simulating ? 'Evaluating Rules...' : 'Run Simulation'}
-            </button>
+              <span>{simulating ? 'Evaluating Rules...' : 'Run Simulation'}</span>
+            </Button>
           </div>
-        </div>
+        </Card>
 
         {/* Right Column: Live Regex Sandbox */}
-        <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700 space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-sky-400" />
-            <span>Browser Regex Tester</span>
-          </h3>
-          <p className="text-[11px] text-slate-400">
-            Test regular expressions instantly against the message body on the left.
-          </p>
+        <Card className="space-y-4">
+          <CardHeader
+            title="Browser Regex Sandbox"
+            subtitle="Test regex patterns locally in real-time"
+          />
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-semibold">Regex Pattern</label>
-            <input
+            <label className="text-xs text-content-primary font-semibold">Regex Pattern</label>
+            <Input
               type="text"
               value={testRegex}
               onChange={(e) => setTestRegex(e.target.value)}
               placeholder="e.g. \b(\d{6})\b"
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-sky-300 font-mono focus:outline-none focus:border-sky-500"
+              className="font-mono text-brand text-xs"
             />
           </div>
 
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleTestRegexLocal}
-            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            className="w-full"
           >
             Test Expression
-          </button>
+          </Button>
 
           {localExtracted !== null && (
-            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+            <div className="bg-surface-code p-3 rounded-xl border border-line-subtle space-y-1">
               <span className="text-[11px] text-slate-400 block font-semibold">Captured Output:</span>
               <div className="text-xs font-mono font-bold text-emerald-400 break-all">
                 {localExtracted}
               </div>
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Error alert */}
       {errorMsg && (
-        <div className="p-4 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300">
+        <div className="p-4 bg-status-danger-bg border border-status-danger-border rounded-xl text-xs text-status-danger-text font-semibold">
           {errorMsg}
         </div>
       )}
 
       {/* Simulation Results */}
       {results && (
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700 p-5 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <span>Simulation Results</span>
-              <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-mono">
-                {results.length} Active Rules Evaluated
-              </span>
-            </h3>
-          </div>
+        <Card className="space-y-4">
+          <CardHeader
+            title="Simulation Trace Results"
+            subtitle={`Evaluated ${results.length} active rules against inbound simulation payload`}
+          />
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             {results.map((res, idx) => (
               <div
                 key={idx}
                 className={`p-4 rounded-xl border text-xs space-y-3 ${
                   res.matches
-                    ? 'bg-slate-900/90 border-emerald-800/80'
-                    : 'bg-slate-900/40 border-slate-800 opacity-60'
+                    ? 'bg-surface-subtle border-status-success-border'
+                    : 'bg-surface-subtle border-line-subtle opacity-60'
                 }`}
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     {res.matches ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-status-success-text" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-slate-500" />
+                      <XCircle className="w-4 h-4 text-content-muted" />
                     )}
-                    <span className="font-bold text-white text-sm">{res.ruleName}</span>
+                    <span className="font-bold text-content-primary text-sm">{res.ruleName}</span>
                   </div>
 
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-semibold font-mono ${
-                      res.matches
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
+                  <Badge tone={res.matches ? 'success' : 'neutral'}>
                     {res.matches ? 'MATCHED' : 'DID NOT MATCH'}
-                  </span>
+                  </Badge>
                 </div>
 
                 {/* Match Evaluation Log */}
-                <div className="text-slate-400 space-y-0.5 text-[11px]">
+                <div className="text-content-secondary space-y-0.5 text-[11px]">
                   {res.matchReasons.map((reason, rIdx) => (
                     <div key={rIdx}>• {reason}</div>
                   ))}
@@ -293,18 +294,15 @@ export const SimulatorTab: React.FC = () => {
                   <>
                     {/* Extracted Variables */}
                     {Object.keys(res.extracted).length > 0 && (
-                      <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                      <div className="bg-surface p-2.5 rounded-lg border border-line-subtle">
+                        <span className="text-content-muted block mb-1 font-semibold text-[11px]">
                           Extracted Variables:
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(res.extracted).map(([k, v]) => (
-                            <span
-                              key={k}
-                              className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono text-[11px]"
-                            >
+                            <Badge key={k} tone="brand" size="sm">
                               <strong>{k}</strong>: &quot;{v}&quot;
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>
@@ -312,30 +310,30 @@ export const SimulatorTab: React.FC = () => {
 
                     {/* Rendered JSON Payload Preview */}
                     <div>
-                      <span className="text-slate-400 block mb-1 font-semibold text-[11px]">
+                      <span className="text-content-muted block mb-1 font-semibold text-[11px]">
                         Rendered Webhook Payload:
                       </span>
-                      <pre className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-emerald-400 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap">
+                      <pre className="bg-surface-code p-2.5 rounded-lg border border-line-subtle text-emerald-400 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap">
                         {res.renderedPayload}
                       </pre>
                     </div>
 
                     {/* Live Dispatch Result (if performed) */}
                     {res.dispatchResult && (
-                      <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                        <span className="text-slate-400 block font-semibold text-[11px]">
+                      <div className="bg-surface p-2.5 rounded-lg border border-line-subtle space-y-1">
+                        <span className="text-content-muted block font-semibold text-[11px]">
                           Live HTTP Dispatch Result:
                         </span>
                         <div className="flex items-center gap-2 text-[11px] font-mono">
                           <span
                             className={`font-bold ${
-                              res.dispatchResult.success ? 'text-emerald-400' : 'text-rose-400'
+                              res.dispatchResult.success ? 'text-status-success-text' : 'text-status-danger-text'
                             }`}
                           >
                             HTTP {res.dispatchResult.status} ({res.dispatchResult.latencyMs}ms)
                           </span>
                         </div>
-                        <pre className="text-slate-300 font-mono text-[10px] whitespace-pre-wrap">
+                        <pre className="text-content-secondary font-mono text-[10px] whitespace-pre-wrap">
                           {res.dispatchResult.body}
                         </pre>
                       </div>
@@ -345,7 +343,7 @@ export const SimulatorTab: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

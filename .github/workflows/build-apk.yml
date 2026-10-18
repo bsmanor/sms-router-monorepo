@@ -38,23 +38,23 @@ jobs:
         working-directory: ./android-app
         run: |
           gradle assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v1.0.4.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v2.0.0.apk
 
       - name: Upload Named APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sms-router-v1.0.4-apk
-          path: android-app/app/build/outputs/apk/debug/sms-router-v1.0.4.apk
+          name: sms-router-v2.0.0-apk
+          path: android-app/app/build/outputs/apk/debug/sms-router-v2.0.0.apk
 
       - name: Publish In-App Update Release on GitHub
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.4
-          name: "SMS Router v1.0.4 (Persistent Signing + 4-Layer SMS/RCS Engine)"
-          body: "Release v1.0.4 signed with persistent PKCS12 keystore (`sms-router-signing.jks`) so all future in-app updates install seamlessly in-place, plus 4-Layer SMS & RCS Capture."
+          tag_name: v2.0.0
+          name: "SMS Router v2.0.0 (Unified Design System & Architecture Hub)"
+          body: "Major v2.0.0 release: Single Source of Truth Theme Engine, Material 3 4-Tab Bottom Navigation, System Readiness Score, Modal Log Inspector, and interactive Architecture & Ecosystem Hub."
           draft: false
           prerelease: false
-          files: android-app/app/build/outputs/apk/debug/sms-router-v1.0.4.apk
+          files: android-app/app/build/outputs/apk/debug/sms-router-v2.0.0.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
