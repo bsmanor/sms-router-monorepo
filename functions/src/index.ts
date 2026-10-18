@@ -432,3 +432,75 @@ export const replayWebhook = onCall({ cors: true }, async (request) => {
     error: replayResult.error
   };
 });
+
+/**
+ * Callable Function: Retrieve masked gateway security status (never exposes raw HMAC secret)
+ */
+export const getGatewaySecurityStatus = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to check security status');
+  }
+
+  try {
+    const secDoc = await db.doc('settings/security').get();
+    if (!secDoc.exists) {
+      return {
+        isConfigured: false,
+        apiKeyMasked: null,
+        updatedAt: null
+      };
+    }
+
+    const data = secDoc.data() as SecuritySettings;
+    const apiKey = data.apiKey || '';
+    const masked = apiKey.length > 8
+      ? `${apiKey.substring(0, 6)}••••••••••••••••${apiKey.substring(apiKey.length - 4)}`
+      : '••••••••••••';
+
+    return {
+      isConfigured: !!(data.apiKey && data.hmacSecret),
+      apiKeyMasked: masked,
+      updatedAt: data.updatedAt || null
+    };
+  } catch (err: any) {
+    console.error('Error fetching security status:', err);
+    throw new HttpsError('internal', 'Failed to retrieve gateway security status: ' + err.message);
+  }
+});
+
+/**
+ * Callable Function: Generate/rotate gateway credentials securely on the backend.
+ * Returns the raw credentials ONCE to the authenticated admin.
+ */
+export const rotateGatewayCredentials = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to rotate credentials');
+  }
+
+  try {
+    // Generate 32 bytes of secure entropy for API key and HMAC secret
+    const apiKey = 'apk_' + crypto.randomBytes(16).toString('hex');
+    const hmacSecret = crypto.randomBytes(32).toString('hex');
+    const updatedAt = Date.now();
+
+    await db.doc('settings/security').set({
+      apiKey,
+      hmacSecret,
+      updatedAt
+    });
+
+    console.log(`Gateway credentials rotated successfully by user ${request.auth.uid}`);
+
+    // Return the raw keys once to the authenticated caller
+    return {
+      success: true,
+      apiKey,
+      hmacSecret,
+      updatedAt
+    };
+  } catch (err: any) {
+    console.error('Error rotating security credentials:', err);
+    throw new HttpsError('internal', 'Failed to rotate gateway credentials: ' + err.message);
+  }
+});
+

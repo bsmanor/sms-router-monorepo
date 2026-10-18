@@ -17,7 +17,8 @@ service cloud.firestore {
     //
     // Collection: settings
     // Document ID: {doc}
-    // Description: System, device, and application settings
+    // Description: System, device, and security settings. Sensitive backend-only
+    //              configuration; direct client access is strictly denied.
     //
     // All other collections and subcollections: Access denied by default
     // ===============================================================
@@ -46,9 +47,9 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Allow authenticated access to settings documents
+    // Deny all direct client access to settings documents
     match /settings/{doc} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if false;
     }
   }
 }
