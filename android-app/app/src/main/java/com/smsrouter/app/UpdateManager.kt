@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,6 +37,8 @@ class UpdateManager(private val context: Context) {
             OkHttpClient.Builder()
                 .connectTimeout(20, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
                 .build()
         }
     }
@@ -99,6 +102,7 @@ class UpdateManager(private val context: Context) {
         try {
             val request = Request.Builder()
                 .url(downloadUrl)
+                .header("User-Agent", "SMS-Router-App")
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -108,8 +112,8 @@ class UpdateManager(private val context: Context) {
 
                 val body = response.body ?: return@withContext UpdateStatus.Error("Empty response body")
                 val contentLength = body.contentLength()
-                val cacheDir = context.cacheDir
-                val apkFile = File(cacheDir, "update.apk")
+                val baseDir = context.externalCacheDir ?: context.cacheDir
+                val apkFile = File(baseDir, "sms-router-update.apk")
                 if (apkFile.exists()) apkFile.delete()
 
                 val inputStream: InputStream = body.byteStream()
@@ -132,6 +136,10 @@ class UpdateManager(private val context: Context) {
                 outputStream.close()
                 inputStream.close()
 
+                if (apkFile.length() < 100_000L) {
+                    return@withContext UpdateStatus.Error("Downloaded APK appears incomplete (${apkFile.length()} bytes)")
+                }
+
                 return@withContext UpdateStatus.ReadyToInstall(apkFile)
             }
         } catch (e: Exception) {
@@ -142,6 +150,11 @@ class UpdateManager(private val context: Context) {
     fun promptInstall(apkFile: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(
+                    context,
+                    "Please allow 'Install unknown apps' for SMS Router, then tap Install Now again",
+                    Toast.LENGTH_LONG
+                ).show()
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = Uri.parse("package:${context.packageName}")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -159,7 +172,10 @@ class UpdateManager(private val context: Context) {
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)
     }

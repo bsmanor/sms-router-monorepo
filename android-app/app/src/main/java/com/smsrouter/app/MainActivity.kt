@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var storage: StorageManager
     private lateinit var updateManager: UpdateManager
-    private val appVersion = "1.0.3"
+    private val appVersion = "1.0.4"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

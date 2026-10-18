@@ -11,8 +11,8 @@ android {
         applicationId = "com.smsrouter.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -20,9 +20,21 @@ android {
         }
     }
 
+    signingConfigs {
+        create("persistent") {
+            storeFile = file("sms-router-signing.jks")
+            storePassword = "smsrouter2026"
+            keyAlias = "smsrouter"
+            keyPassword = "smsrouter2026"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("persistent")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -30,6 +42,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("persistent")
         }
     }
 
