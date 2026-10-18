@@ -38,23 +38,23 @@ jobs:
         working-directory: ./android-app
         run: |
           gradle assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v2.0.0.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sms-router-v2.0.1.apk
 
       - name: Upload Named APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sms-router-v2.0.0-apk
-          path: android-app/app/build/outputs/apk/debug/sms-router-v2.0.0.apk
+          name: sms-router-v2.0.1-apk
+          path: android-app/app/build/outputs/apk/debug/sms-router-v2.0.1.apk
 
       - name: Publish In-App Update Release on GitHub
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0.0
-          name: "SMS Router v2.0.0 (Unified Design System & Architecture Hub)"
-          body: "Major v2.0.0 release: Single Source of Truth Theme Engine, Material 3 4-Tab Bottom Navigation, System Readiness Score, Modal Log Inspector, and interactive Architecture & Ecosystem Hub."
+          tag_name: v2.0.1
+          name: "SMS Router v2.0.1 (Status Bar Insets Fix)"
+          body: "Release v2.0.1 fixes top status bar overlap by respecting system windowInsetsPadding(WindowInsets.statusBars), ensuring battery, clock, and notifications are completely clear."
           draft: false
           prerelease: false
-          files: android-app/app/build/outputs/apk/debug/sms-router-v2.0.0.apk
+          files: android-app/app/build/outputs/apk/debug/sms-router-v2.0.1.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

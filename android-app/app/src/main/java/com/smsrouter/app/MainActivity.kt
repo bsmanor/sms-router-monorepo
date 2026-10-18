@@ -24,9 +24,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
@@ -80,7 +81,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var storage: StorageManager
     private lateinit var updateManager: UpdateManager
-    private val appVersion = "2.0.0"
+    private val appVersion = "2.0.1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -154,7 +155,7 @@ class MainActivity : ComponentActivity() {
 
     private fun enqueueTestSms() {
         val testSender = "+1 (555) 839-2041"
-        val testBody = "Verification code: 582910. Valid for 10 minutes. Multi-Layer v2.0.0 Active."
+        val testBody = "Verification code: 582910. Valid for 10 minutes. Multi-Layer v2.0.1 Active."
         val timestamp = System.currentTimeMillis()
 
         SmsIngestCoordinator.ingestAndForward(
@@ -261,37 +262,42 @@ fun MainAppShell(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppTheme.colors.canvas,
-        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            // Persistent Top Header
-            Row(
+            // Persistent Top Header with proper system status bar window insets padding
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(AppTheme.colors.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                    .windowInsetsPadding(WindowInsets.statusBars)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(AppTheme.colors.actionPrimary, shape = RoundedCornerShape(AppTheme.radius.sm)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("SR", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(AppTheme.colors.actionPrimary, shape = RoundedCornerShape(AppTheme.radius.sm)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("SR", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("SMS Router", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("v$versionName Gateway", color = AppTheme.colors.textMuted, fontSize = 10.sp)
+                        }
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text("SMS Router", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("v$versionName Gateway", color = AppTheme.colors.textMuted, fontSize = 10.sp)
-                    }
-                }
 
-                AppStatusBadge(
-                    text = if (hasReceiveSms && hasNotificationAccess) "READY (4/4)" else "ATTN NEEDED",
-                    tone = if (hasReceiveSms && hasNotificationAccess) AppTheme.colors.success else AppTheme.colors.warning
-                )
+                    AppStatusBadge(
+                        text = if (hasReceiveSms && hasNotificationAccess) "READY (4/4)" else "ATTN NEEDED",
+                        tone = if (hasReceiveSms && hasNotificationAccess) AppTheme.colors.success else AppTheme.colors.warning
+                    )
+                }
             }
         },
         bottomBar = {
