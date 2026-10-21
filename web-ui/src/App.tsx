@@ -375,8 +375,8 @@ const AppContent: React.FC = () => {
         </button>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-32 md:pb-8">
+      {/* Main Content Area: Sufficient bottom padding on mobile so content is never obscured by the fixed bottom nav */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-36 md:pb-8">
         {currentTab === 'manager' && <SmsManagerTab />}
         {currentTab === 'logs' && <LiveLogsTab />}
         {currentTab === 'rules' && <RulesManagerTab />}
@@ -385,18 +385,18 @@ const AppContent: React.FC = () => {
         {currentTab === 'architecture' && <ArchitectureTab />}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Bar (Bulletproof fixed safe-area positioning) */}
+      {/* Mobile Fixed Bottom Navigation Bar (Fixed to viewport bottom with safe area insets) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/95 border-t border-line-subtle backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-surface/98 border-t border-line-subtle backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.15)] select-none"
         style={{
-          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 10px)'
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 14px)'
         }}
       >
-        <div className="flex items-center justify-around px-2 pt-1.5 pb-0.5 h-14">
+        <div className="flex items-center justify-around px-2 pt-2 pb-0.5 h-14">
           <button
             onClick={() => setCurrentTab('manager')}
             className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-              currentTab === 'manager' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              currentTab === 'manager' ? 'text-brand font-bold scale-105' : 'text-content-muted hover:text-content-primary'
             }`}
           >
             <MessageSquare className="w-5 h-5 mb-0.5" />
@@ -406,7 +406,7 @@ const AppContent: React.FC = () => {
           <button
             onClick={() => setCurrentTab('logs')}
             className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-              currentTab === 'logs' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              currentTab === 'logs' ? 'text-brand font-bold scale-105' : 'text-content-muted hover:text-content-primary'
             }`}
           >
             <Radio className="w-5 h-5 mb-0.5" />
@@ -416,7 +416,7 @@ const AppContent: React.FC = () => {
           <button
             onClick={() => setCurrentTab('rules')}
             className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-              currentTab === 'rules' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              currentTab === 'rules' ? 'text-brand font-bold scale-105' : 'text-content-muted hover:text-content-primary'
             }`}
           >
             <Sliders className="w-5 h-5 mb-0.5" />
@@ -426,7 +426,7 @@ const AppContent: React.FC = () => {
           <button
             onClick={() => setCurrentTab('security')}
             className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-              currentTab === 'security' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              currentTab === 'security' ? 'text-brand font-bold scale-105' : 'text-content-muted hover:text-content-primary'
             }`}
           >
             <KeyRound className="w-5 h-5 mb-0.5" />
@@ -436,7 +436,7 @@ const AppContent: React.FC = () => {
           <button
             onClick={() => setCurrentTab('architecture')}
             className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-              currentTab === 'architecture' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+              currentTab === 'architecture' ? 'text-brand font-bold scale-105' : 'text-content-muted hover:text-content-primary'
             }`}
           >
             <Layers className="w-5 h-5 mb-0.5" />
@@ -452,34 +452,6 @@ const AppContent: React.FC = () => {
         user={user}
         onSignOut={handleSignOut}
       />
-
-      {/* Footer */}
-      <footer className="border-t border-line-subtle bg-surface py-5 text-center text-xs text-content-muted">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span>SMS Router Gateway • Monorepo Architecture (Android + Firebase Functions v2 + React)</span>
-          <div className="flex items-center gap-3">
-            <a
-              href="https://github.com/bsmanor/sms-router-monorepo"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-content-primary inline-flex items-center gap-1"
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>GitHub</span>
-            </a>
-            <span>•</span>
-            <a
-              href="https://sms-router.web.app"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-content-primary inline-flex items-center gap-1"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Production Site</span>
-            </a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

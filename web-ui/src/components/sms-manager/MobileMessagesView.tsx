@@ -76,6 +76,81 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  // Long-press detection with haptic feedback
+  const touchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isLongPressActiveRef = React.useRef(false);
+
+  const triggerHaptic = () => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(60); // 60ms tactile buzz
+      } catch (e) {
+        // Ignore if unsupported or restricted
+      }
+    }
+  };
+
+  const handleTouchStart = (msgId: string, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isLongPressActiveRef.current = false;
+
+    touchTimerRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true;
+      triggerHaptic();
+      setSelectionMode(true);
+      setSelectedIds((prev) => (prev.includes(msgId) ? prev : [...prev, msgId]));
+    }, 450);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || !touchTimerRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleMouseDown = (msgId: string, e: React.MouseEvent) => {
+    touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+    isLongPressActiveRef.current = false;
+
+    touchTimerRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true;
+      triggerHaptic();
+      setSelectionMode(true);
+      setSelectedIds((prev) => (prev.includes(msgId) ? prev : [...prev, msgId]));
+    }, 450);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!touchStartPosRef.current || !touchTimerRef.current) return;
+    const dx = Math.abs(e.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(e.clientY - touchStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
   // Format relative time
   const formatTime = (ts: number) => {
     const diff = Date.now() - ts;
@@ -496,7 +571,21 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
             return (
               <div
                 key={msg.id}
+                onTouchStart={(e) => handleTouchStart(msg.id, e)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={(e) => handleMouseDown(msg.id, e)}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onContextMenu={(e) => {
+                  // Prevent native context menu on long-press
+                  e.preventDefault();
+                }}
                 onClick={() => {
+                  if (isLongPressActiveRef.current) {
+                    isLongPressActiveRef.current = false;
+                    return;
+                  }
                   if (selectionMode) {
                     toggleSelectId(msg.id);
                   } else {
@@ -508,7 +597,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                 }}
                 className={`p-3.5 rounded-2xl border transition-all active:scale-[0.99] select-none ${
                   isSelected
-                    ? 'border-brand bg-brand-subtle/50'
+                    ? 'border-brand bg-brand-subtle/50 ring-2 ring-brand/30'
                     : isUnread
                     ? 'border-brand/40 bg-surface shadow-sm'
                     : 'border-line-subtle bg-surface/80 hover:bg-surface'
@@ -578,39 +667,69 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         )}
       </div>
 
-      {/* Floating Selection Mode Bar */}
-      {selectionMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-20 inset-x-4 z-40 bg-surface/95 border border-line-subtle rounded-2xl p-3 shadow-2xl backdrop-blur-md flex items-center justify-between gap-2 animate-slideUp">
-          <span className="text-xs font-bold text-content-primary pl-2">
-            {selectedIds.length} selected
-          </span>
+      {/* Floating Multi-Select Action Bar */}
+      {selectionMode && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] inset-x-3 z-[90] bg-surface/98 border border-line-subtle rounded-2xl p-3 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-2 animate-slideUp">
+          <div className="flex items-center gap-2 pl-1">
+            <span className="text-xs font-bold text-content-primary">
+              {selectedIds.length > 0 ? `${selectedIds.length} Selected` : 'Select Messages'}
+            </span>
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => setSelectedIds([])}
+                className="text-[10px] text-content-muted hover:text-content-primary underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center gap-1.5">
+            {/* Move to Category Button */}
             <Button
-              variant="secondary"
+              variant="brand"
               size="sm"
-              onClick={() => handleBatchMarkRead(true)}
-              title="Mark as Read"
-            >
-              <MailOpen className="w-3.5 h-3.5" />
-              <span>Read</span>
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
+              disabled={selectedIds.length === 0}
               onClick={() => setMovingLogIds(selectedIds)}
-              title="Move to Group"
+              className="gap-1.5 text-xs font-bold shadow-sm"
+              title="Move selected messages to a category"
             >
               <FolderInput className="w-3.5 h-3.5" />
               <span>Move</span>
             </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={selectedIds.length === 0}
+              onClick={() => handleBatchMarkRead(true)}
+              title="Mark as Read"
+              className="px-2.5"
+            >
+              <MailOpen className="w-3.5 h-3.5" />
+            </Button>
+
             <Button
               variant="danger"
               size="sm"
+              disabled={selectedIds.length === 0}
               onClick={handleBatchDelete}
-              title="Delete"
+              title="Delete Selected"
+              className="px-2.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
+
+            <button
+              onClick={() => {
+                setSelectionMode(false);
+                setSelectedIds([]);
+              }}
+              className="p-1.5 rounded-xl border border-line-subtle bg-surface-subtle text-content-muted hover:text-content-primary"
+              title="Exit Selection"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -756,6 +875,8 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                 groupName: targetGroup ? targetGroup.name : null
               });
             }
+            setSelectedIds([]);
+            setSelectionMode(false);
           }
         }}
       />

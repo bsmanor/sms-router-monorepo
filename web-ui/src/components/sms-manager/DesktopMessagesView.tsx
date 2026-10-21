@@ -783,6 +783,7 @@ export const DesktopMessagesView: React.FC<DesktopMessagesViewProps> = ({
         onSelectGroup={async (targetGroup) => {
           if (movingLogIds) {
             await moveMessagesToGroup(movingLogIds, targetGroup);
+            setSelectedIds([]);
           }
         }}
       />
