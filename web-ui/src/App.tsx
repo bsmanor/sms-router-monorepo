@@ -13,6 +13,7 @@ import { SimulatorTab } from './components/SimulatorTab';
 import { SetupSecurityTab } from './components/SetupSecurityTab';
 import { ArchitectureTab } from './components/ArchitectureTab';
 import { SmsManagerTab } from './components/sms-manager/SmsManagerTab';
+import { ProfileMenuModal } from './components/ProfileMenuModal';
 import { Card, Badge, Button } from './components/ui/Primitives';
 import {
   Radio,
@@ -37,6 +38,7 @@ const AppContent: React.FC = () => {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [currentTab, setCurrentTab] = useState<Tab>('manager');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const { theme, resolvedTheme, setTheme } = useTheme();
 
@@ -172,8 +174,8 @@ const AppContent: React.FC = () => {
   // Authenticated Dashboard
   return (
     <div className="min-h-screen bg-canvas text-content-primary flex flex-col transition-colors duration-200">
-      {/* Navigation Header */}
-      <header className="bg-surface/90 border-b border-line-subtle sticky top-0 z-40 backdrop-blur-md">
+      {/* Desktop Navigation Header */}
+      <header className="hidden md:block bg-surface/90 border-b border-line-subtle sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Project Title */}
           <div className="flex items-center gap-3">
@@ -341,8 +343,40 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
+      {/* Mobile Top Header (Sleek, minimal, uncluttered) */}
+      <header className="md:hidden sticky top-0 z-40 bg-surface/95 border-b border-line-subtle backdrop-blur-md px-4 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-brand-subtle text-brand border border-brand-border rounded-xl flex items-center justify-center font-bold">
+            <Radio className="w-4 h-4" />
+          </div>
+          <span className="font-extrabold text-sm text-content-primary tracking-tight">
+            SMS Router
+          </span>
+          <Badge tone="brand" size="sm">v2.0</Badge>
+        </div>
+
+        {/* Profile Avatar Button: Opens Settings & Features Menu */}
+        <button
+          onClick={() => setShowProfileMenu(true)}
+          className="flex items-center gap-2 p-1 rounded-full border border-line-subtle bg-surface hover:bg-surface-subtle transition-all active:scale-95 shadow-sm"
+          title="Open Profile & Settings"
+        >
+          {user.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt={user.displayName || 'Avatar'}
+              className="w-7 h-7 rounded-full"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-brand-subtle text-brand flex items-center justify-center text-xs font-bold">
+              {(user.email || 'U')[0].toUpperCase()}
+            </div>
+          )}
+        </button>
+      </header>
+
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-20 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-32 md:pb-8">
         {currentTab === 'manager' && <SmsManagerTab />}
         {currentTab === 'logs' && <LiveLogsTab />}
         {currentTab === 'rules' && <RulesManagerTab />}
@@ -351,58 +385,73 @@ const AppContent: React.FC = () => {
         {currentTab === 'architecture' && <ArchitectureTab />}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Dedicated Mobile Web App Experience) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface/95 border-t border-line-subtle backdrop-blur-md px-2 py-1.5 flex items-center justify-around shadow-lg">
-        <button
-          onClick={() => setCurrentTab('manager')}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-            currentTab === 'manager' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
-          }`}
-        >
-          <MessageSquare className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Messages</span>
-        </button>
+      {/* Mobile Fixed Bottom Navigation Bar (Bulletproof fixed safe-area positioning) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/95 border-t border-line-subtle backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"
+        style={{
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 10px)'
+        }}
+      >
+        <div className="flex items-center justify-around px-2 pt-1.5 pb-0.5 h-14">
+          <button
+            onClick={() => setCurrentTab('manager')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              currentTab === 'manager' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <MessageSquare className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Messages</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentTab('logs')}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-            currentTab === 'logs' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
-          }`}
-        >
-          <Radio className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Telemetry</span>
-        </button>
+          <button
+            onClick={() => setCurrentTab('logs')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              currentTab === 'logs' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <Radio className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Telemetry</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentTab('rules')}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-            currentTab === 'rules' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
-          }`}
-        >
-          <Sliders className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Rules</span>
-        </button>
+          <button
+            onClick={() => setCurrentTab('rules')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              currentTab === 'rules' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <Sliders className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Rules</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentTab('security')}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-            currentTab === 'security' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
-          }`}
-        >
-          <KeyRound className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Keys</span>
-        </button>
+          <button
+            onClick={() => setCurrentTab('security')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              currentTab === 'security' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <KeyRound className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Keys</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentTab('architecture')}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-            currentTab === 'architecture' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
-          }`}
-        >
-          <Layers className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Guide</span>
-        </button>
+          <button
+            onClick={() => setCurrentTab('architecture')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              currentTab === 'architecture' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <Layers className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Guide</span>
+          </button>
+        </div>
       </nav>
+
+      {/* Profile & Settings Menu Modal */}
+      <ProfileMenuModal
+        isOpen={showProfileMenu}
+        onClose={() => setShowProfileMenu(false)}
+        user={user}
+        onSignOut={handleSignOut}
+      />
 
       {/* Footer */}
       <footer className="border-t border-line-subtle bg-surface py-5 text-center text-xs text-content-muted">

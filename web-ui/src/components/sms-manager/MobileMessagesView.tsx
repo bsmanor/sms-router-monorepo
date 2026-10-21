@@ -4,7 +4,7 @@ import { GroupIcon } from './GroupIcon';
 import { GroupEditModal } from './GroupEditModal';
 import { MoveToGroupModal } from './MoveToGroupModal';
 import { extractOtpCode } from '../../utils/otpExtractor';
-import { Badge, Button, Input } from '../ui/Primitives';
+import { Badge, Button, Input, Card } from '../ui/Primitives';
 import {
   Search,
   Check,
@@ -16,12 +16,14 @@ import {
   X,
   Layers,
   ChevronRight,
-  SlidersHorizontal,
+  ArrowLeft,
   MailOpen,
   Mail,
-  ExternalLink,
-  ShieldAlert,
-  ArrowLeft
+  Edit2,
+  Sparkles,
+  MessageSquare,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 
 interface MobileMessagesViewProps {
@@ -35,6 +37,8 @@ interface MobileMessagesViewProps {
   unreadOnly: boolean;
   setUnreadOnly: (u: boolean) => void;
   unreadCounts: Record<string, number>;
+  messageCounts: Record<string, number>;
+  latestMessagePerGroup: Record<string, SmsLogDocument>;
   markAsRead: (ids: string[], isRead: boolean) => Promise<void>;
   deleteMessages: (ids: string[]) => Promise<void>;
   moveMessagesToGroup: (ids: string[], group: SmsGroup | null) => Promise<void>;
@@ -45,6 +49,7 @@ interface MobileMessagesViewProps {
 
 export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
   groups,
+  messages,
   filteredMessages,
   activeGroupId,
   setActiveGroupId,
@@ -53,6 +58,8 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
   unreadOnly,
   setUnreadOnly,
   unreadCounts,
+  messageCounts,
+  latestMessagePerGroup,
   markAsRead,
   deleteMessages,
   moveMessagesToGroup,
@@ -60,7 +67,8 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
   updateGroup,
   deleteGroup
 }) => {
-  const [showSearch, setShowSearch] = useState(false);
+  // Navigation State: 'categories' (Main Hub) or 'messages' (Inside a specific group)
+  const [currentView, setCurrentView] = useState<'categories' | 'messages'>('categories');
   const [selectedLog, setSelectedLog] = useState<SmsLogDocument | null>(null);
   const [movingLogIds, setMovingLogIds] = useState<string[] | null>(null);
   const [isEditingGroup, setIsEditingGroup] = useState<SmsGroup | null | boolean>(false);
@@ -84,18 +92,24 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
     setTimeout(() => setCopiedOtp(null), 2000);
   };
 
+  const openCategory = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setCurrentView('messages');
+    setSelectionMode(false);
+    setSelectedIds([]);
+  };
+
+  const backToCategories = () => {
+    setCurrentView('categories');
+    setSelectionMode(false);
+    setSelectedIds([]);
+    setSearchQuery('');
+  };
+
   const toggleSelectId = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.length === filteredMessages.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredMessages.map((m) => m.id));
-    }
   };
 
   const handleBatchDelete = async () => {
@@ -116,40 +130,277 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
 
   // Find active group metadata
   const currentGroup = groups.find((g) => g.id === activeGroupId);
+  const currentCategoryTitle =
+    activeGroupId === 'all'
+      ? 'All Messages'
+      : activeGroupId === 'ungrouped'
+      ? 'Ungrouped Messages'
+      : currentGroup?.name || 'Category Messages';
 
-  return (
-    <div className="flex flex-col min-h-screen bg-canvas text-content-primary pb-24">
-      {/* 1. Mobile Top App Bar */}
-      <div className="sticky top-0 z-30 bg-surface/95 border-b border-line-subtle backdrop-blur-md px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-black tracking-tight text-content-primary">
-              SMS Messages
+  // =========================================================================
+  // VIEW 1: CATEGORIES CARDS HUB (Main Page View Body)
+  // Shows categories as cards with message counts - NO message list!
+  // =========================================================================
+  if (currentView === 'categories') {
+    return (
+      <div className="space-y-4 animate-fadeIn pb-12">
+        {/* Hub Header */}
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <h1 className="text-xl font-black text-content-primary tracking-tight">
+              SMS Categories
             </h1>
-            {unreadCounts.all > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand text-white">
-                {unreadCounts.all} new
+            <p className="text-xs text-content-muted">
+              Select a category to view and manage organized messages
+            </p>
+          </div>
+          {unreadCounts.all > 0 && (
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-brand text-white shadow-sm">
+              {unreadCounts.all} unread
+            </span>
+          )}
+        </div>
+
+        {/* Quick Search across categories */}
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Search messages, OTPs, or categories..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-11 text-xs rounded-2xl shadow-sm"
+          />
+          <Search className="w-4 h-4 text-content-muted absolute left-3 top-3.5" />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-3 text-content-muted hover:text-content-primary"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Search Results Direct Jumper (if searching) */}
+        {searchQuery.trim().length > 0 && (
+          <div
+            onClick={() => openCategory('all')}
+            className="p-3.5 bg-brand-subtle border border-brand-border rounded-2xl flex items-center justify-between cursor-pointer active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-2.5">
+              <Search className="w-4 h-4 text-brand" />
+              <div>
+                <span className="text-xs font-bold text-brand block">
+                  Search across All Messages
+                </span>
+                <span className="text-[11px] text-content-secondary">
+                  Found {filteredMessages.length} matching messages
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-brand" />
+          </div>
+        )}
+
+        {/* Categories Cards Grid */}
+        <div className="grid grid-cols-1 gap-3">
+          {/* Smart Group Cards (Deliveries, Tickets, Confirmations, Custom) */}
+          {groups.map((group) => {
+            const count = messageCounts[group.id] || 0;
+            const unread = unreadCounts[group.id] || 0;
+            const latest = latestMessagePerGroup[group.id];
+
+            return (
+              <div
+                key={group.id}
+                onClick={() => openCategory(group.id)}
+                className="p-4 bg-surface border border-line-subtle rounded-2xl shadow-sm hover:border-brand/40 active:scale-[0.99] transition-all cursor-pointer space-y-3 relative overflow-hidden"
+              >
+                {/* Accent line on left */}
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                    group.colorTone === 'warning'
+                      ? 'bg-status-warning-text'
+                      : group.colorTone === 'info'
+                      ? 'bg-status-info-text'
+                      : group.colorTone === 'success'
+                      ? 'bg-status-success-text'
+                      : 'bg-brand'
+                  }`}
+                />
+
+                <div className="flex items-start justify-between gap-3 pl-1">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                        group.colorTone === 'warning'
+                          ? 'bg-status-warning-bg border-status-warning-border text-status-warning-text'
+                          : group.colorTone === 'info'
+                          ? 'bg-status-info-bg border-status-info-border text-status-info-text'
+                          : group.colorTone === 'success'
+                          ? 'bg-status-success-bg border-status-success-border text-status-success-text'
+                          : 'bg-brand-subtle border-brand-border text-brand'
+                      }`}
+                    >
+                      <GroupIcon iconName={group.icon} className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-content-primary flex items-center gap-2">
+                        <span>{group.name}</span>
+                        {group.isDefault && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface-subtle text-content-muted font-normal">
+                            System
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-[11px] text-content-muted line-clamp-1 mt-0.5">
+                        {group.description || 'Auto-categorized messages'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Message Count & Unread Badges */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-surface-subtle border border-line-subtle text-content-primary">
+                      {count} {count === 1 ? 'msg' : 'msgs'}
+                    </span>
+                    {unread > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand text-white">
+                        {unread} new
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Latest message snippet if available */}
+                {latest ? (
+                  <div className="p-2.5 bg-surface-subtle/70 rounded-xl border border-line-subtle text-[11px] flex items-center justify-between gap-2 pl-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-bold text-content-primary shrink-0">{latest.sender}:</span>
+                      <span className="text-content-secondary truncate">{latest.body}</span>
+                    </div>
+                    <span className="text-[10px] text-content-muted font-mono shrink-0">
+                      {formatTime(latest.receivedAt)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-content-muted italic pl-1 flex items-center gap-1">
+                    <span>No messages yet in this category</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Ungrouped Messages Card */}
+          <div
+            onClick={() => openCategory('ungrouped')}
+            className="p-4 bg-surface border border-line-subtle rounded-2xl shadow-sm hover:border-brand/40 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-surface-subtle border border-line-subtle text-content-secondary flex items-center justify-center shrink-0">
+                <Inbox className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-content-primary">Ungrouped Messages</h3>
+                <p className="text-[11px] text-content-muted">SMS not yet assigned to any category</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-surface-subtle border border-line-subtle text-content-primary">
+                {messageCounts.ungrouped || 0}
               </span>
-            )}
+              <ChevronRight className="w-4 h-4 text-content-muted" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={`p-2 rounded-xl transition-colors ${
-                showSearch || searchQuery ? 'bg-brand-subtle text-brand' : 'text-content-muted hover:text-content-primary'
-              }`}
-              title="Search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
+          {/* All Messages Card */}
+          <div
+            onClick={() => openCategory('all')}
+            className="p-4 bg-surface border border-line-subtle rounded-2xl shadow-sm hover:border-brand/40 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-brand-subtle text-brand border border-brand-border flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-content-primary">All Messages</h3>
+                <p className="text-[11px] text-content-muted">Full chronological feed of all SMS</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-surface-subtle border border-line-subtle text-content-primary">
+                {messages.length}
+              </span>
+              <ChevronRight className="w-4 h-4 text-content-muted" />
+            </div>
+          </div>
+
+          {/* + Create New Category Action Card */}
+          <button
+            onClick={() => setIsEditingGroup(true)}
+            className="p-4 rounded-2xl border-2 border-dashed border-line-subtle bg-surface/50 hover:bg-surface text-content-muted hover:text-content-primary flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+          >
+            <FolderPlus className="w-4 h-4 text-brand" />
+            <span className="text-xs font-bold text-brand">Create New Category</span>
+          </button>
+        </div>
+
+        {/* Group Modal */}
+        <GroupEditModal
+          isOpen={!!isEditingGroup}
+          onClose={() => setIsEditingGroup(false)}
+          groupToEdit={typeof isEditingGroup === 'object' ? isEditingGroup : null}
+          onSave={async (data) => {
+            if (typeof isEditingGroup === 'object' && isEditingGroup) {
+              await updateGroup(isEditingGroup.id, data);
+            } else {
+              await createGroup(data);
+            }
+          }}
+          onDelete={async (id) => {
+            await deleteGroup(id);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: CATEGORY DETAIL VIEW (When a category card is clicked)
+  // Shows back button, category header, and the list of messages in this category
+  // =========================================================================
+  return (
+    <div className="space-y-3 animate-fadeIn pb-16">
+      {/* Category Navigation Header */}
+      <div className="bg-surface border border-line-subtle rounded-2xl p-3.5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          {/* 1-Tap Back Button */}
+          <button
+            onClick={backToCategories}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-surface-subtle border border-line-subtle text-brand hover:bg-brand-subtle transition-colors active:scale-95"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Categories</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            {currentGroup && (
+              <button
+                onClick={() => setIsEditingGroup(currentGroup)}
+                className="p-1.5 rounded-lg border border-line-subtle text-content-muted hover:text-content-primary hover:bg-surface-subtle"
+                title="Edit Category"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             <button
               onClick={() => {
                 setSelectionMode(!selectionMode);
                 setSelectedIds([]);
               }}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-colors ${
                 selectionMode
                   ? 'border-brand bg-brand-subtle text-brand'
                   : 'border-line-subtle bg-surface text-content-secondary'
@@ -160,159 +411,80 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
           </div>
         </div>
 
-        {/* Collapsible Search Input */}
-        {showSearch && (
-          <div className="mt-2.5 pt-2 border-t border-line-subtle flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                type="text"
-                placeholder="Search sender, code, text..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 text-xs h-9"
-                autoFocus
-              />
-              <Search className="w-3.5 h-3.5 text-content-muted absolute left-2.5 top-2.5" />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-2.5 text-content-muted hover:text-content-primary"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+        {/* Category Title Strip */}
+        <div className="flex items-center justify-between border-t border-line-subtle pt-2.5">
+          <div className="flex items-center gap-2.5">
+            {currentGroup ? (
+              <div className="w-8 h-8 rounded-xl bg-brand-subtle text-brand border border-brand-border flex items-center justify-center">
+                <GroupIcon iconName={currentGroup.icon} className="w-4 h-4" />
+              </div>
+            ) : activeGroupId === 'ungrouped' ? (
+              <div className="w-8 h-8 rounded-xl bg-surface-subtle text-content-secondary border border-line-subtle flex items-center justify-center">
+                <Inbox className="w-4 h-4" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-brand-subtle text-brand border border-brand-border flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-sm font-bold text-content-primary">{currentCategoryTitle}</h2>
+              <span className="text-[11px] text-content-muted">
+                {filteredMessages.length} {filteredMessages.length === 1 ? 'message' : 'messages'}
+              </span>
             </div>
-
-            <button
-              onClick={() => setUnreadOnly(!unreadOnly)}
-              className={`p-2 rounded-xl border text-xs shrink-0 flex items-center gap-1 font-semibold ${
-                unreadOnly
-                  ? 'border-brand bg-brand-subtle text-brand'
-                  : 'border-line-subtle bg-surface text-content-muted'
-              }`}
-            >
-              <span>Unread</span>
-              {unreadOnly && <Check className="w-3 h-3" />}
-            </button>
           </div>
-        )}
 
-        {/* 2. Horizontal Category Carousel (Pill Strip) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3 pb-1 -mx-4 px-4">
-          {/* All */}
           <button
-            onClick={() => setActiveGroupId('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all ${
-              activeGroupId === 'all'
-                ? 'bg-brand text-white border-brand shadow-sm'
-                : 'bg-surface border-line-subtle text-content-secondary'
+            onClick={() => setUnreadOnly(!unreadOnly)}
+            className={`px-2.5 py-1 rounded-xl border text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+              unreadOnly
+                ? 'border-brand bg-brand-subtle text-brand'
+                : 'border-line-subtle bg-surface text-content-muted'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>All</span>
-            {unreadCounts.all > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                activeGroupId === 'all' ? 'bg-white/20 text-white' : 'bg-brand-subtle text-brand'
-              }`}>
-                {unreadCounts.all}
-              </span>
-            )}
+            <span>Unread</span>
+            {unreadOnly && <Check className="w-3 h-3" />}
           </button>
+        </div>
 
-          {/* Ungrouped */}
-          <button
-            onClick={() => setActiveGroupId('ungrouped')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all ${
-              activeGroupId === 'ungrouped'
-                ? 'bg-brand text-white border-brand shadow-sm'
-                : 'bg-surface border-line-subtle text-content-secondary'
-            }`}
-          >
-            <Inbox className="w-3.5 h-3.5" />
-            <span>Ungrouped</span>
-            {unreadCounts.ungrouped > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                activeGroupId === 'ungrouped' ? 'bg-white/20 text-white' : 'bg-brand-subtle text-brand'
-              }`}>
-                {unreadCounts.ungrouped}
-              </span>
-            )}
-          </button>
-
-          {/* User & Default Groups */}
-          {groups.map((group) => {
-            const isActive = activeGroupId === group.id;
-            const unread = unreadCounts[group.id] || 0;
-            return (
-              <button
-                key={group.id}
-                onClick={() => setActiveGroupId(group.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all ${
-                  isActive
-                    ? 'bg-brand text-white border-brand shadow-sm'
-                    : 'bg-surface border-line-subtle text-content-secondary'
-                }`}
-              >
-                <GroupIcon iconName={group.icon} className="w-3.5 h-3.5" />
-                <span>{group.name}</span>
-                {unread > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-brand-subtle text-brand'
-                  }`}>
-                    {unread}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Add Group Pill */}
-          <button
-            onClick={() => setIsEditingGroup(true)}
-            className="px-2.5 py-1.5 rounded-full text-xs font-semibold shrink-0 flex items-center gap-1 border border-dashed border-line-subtle bg-surface text-content-muted hover:text-content-primary"
-          >
-            <FolderPlus className="w-3.5 h-3.5" />
-            <span>New Group</span>
-          </button>
+        {/* Search Bar inside this category */}
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder={`Search in ${currentCategoryTitle}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 text-xs h-9"
+          />
+          <Search className="w-3.5 h-3.5 text-content-muted absolute left-2.5 top-2.5" />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2.5 text-content-muted hover:text-content-primary"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 3. Messages List Area */}
-      <div className="px-4 py-3 space-y-2.5">
-        {/* Active Filter Info & Group Header (if inside specific group) */}
-        {currentGroup && (
-          <div className="p-3 bg-surface border border-line-subtle rounded-2xl flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-brand-subtle text-brand flex items-center justify-center">
-                <GroupIcon iconName={currentGroup.icon} className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-xs font-bold text-content-primary">{currentGroup.name}</h2>
-                <p className="text-[10px] text-content-muted line-clamp-1">{currentGroup.description || 'Custom category'}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsEditingGroup(currentGroup)}
-              className="text-[11px] font-semibold text-brand hover:underline px-2 py-1 rounded-lg hover:bg-brand-subtle"
-            >
-              Edit Group
-            </button>
-          </div>
-        )}
-
+      {/* Messages List Area */}
+      <div className="space-y-2.5">
         {filteredMessages.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
+          <div className="p-12 text-center bg-surface border border-line-subtle rounded-2xl space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-surface-subtle border border-line-subtle text-content-muted flex items-center justify-center mx-auto">
               <Inbox className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-content-primary">No messages found</h3>
+            <h3 className="text-sm font-bold text-content-primary">No messages in this category</h3>
             <p className="text-xs text-content-muted max-w-xs mx-auto">
               {searchQuery
-                ? 'No SMS logs match your query. Try clearing the search.'
-                : activeGroupId !== 'all'
-                ? 'No messages in this group yet. Incoming SMS will auto-classify, or you can move messages here manually.'
-                : 'Waiting for incoming SMS from your Android gateway device.'}
+                ? 'No messages match your search. Try clearing the filter.'
+                : 'Messages matching this category keywords will appear here automatically.'}
             </p>
+            <Button variant="secondary" size="sm" onClick={backToCategories}>
+              ← Back to Categories
+            </Button>
           </div>
         ) : (
           filteredMessages.map((msg) => {
@@ -334,12 +506,12 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                     }
                   }
                 }}
-                className={`relative p-3.5 rounded-2xl border transition-all active:scale-[0.99] select-none ${
+                className={`p-3.5 rounded-2xl border transition-all active:scale-[0.99] select-none ${
                   isSelected
                     ? 'border-brand bg-brand-subtle/50'
                     : isUnread
                     ? 'border-brand/40 bg-surface shadow-sm'
-                    : 'border-line-subtle bg-surface/70 hover:bg-surface'
+                    : 'border-line-subtle bg-surface/80 hover:bg-surface'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -365,7 +537,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                     </div>
                   )}
 
-                  {/* Message Card Content */}
+                  {/* Message Card Body */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className={`text-xs truncate ${isUnread ? 'font-black text-content-primary' : 'font-semibold text-content-primary'}`}>
@@ -380,21 +552,9 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                       {msg.body}
                     </p>
 
-                    {/* Metadata strip: Group Badge & OTP Chip */}
+                    {/* Metadata & 1-Tap OTP Chip */}
                     <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-                      {groupMatch ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border bg-surface border-line-subtle text-content-secondary">
-                          <GroupIcon iconName={groupMatch.icon} className="w-3 h-3" />
-                          <span>{groupMatch.name}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] text-content-muted border border-line-subtle/50 bg-surface">
-                          <Inbox className="w-2.5 h-2.5" />
-                          <span>Ungrouped</span>
-                        </span>
-                      )}
-
-                      {/* 1-Tap OTP Chip */}
+                      {/* OTP Chip */}
                       {otpCode && (
                         <button
                           onClick={(e) => handleCopyOtp(e, otpCode)}
@@ -418,9 +578,9 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         )}
       </div>
 
-      {/* 4. Selection Mode Floating Bottom Action Bar */}
+      {/* Floating Selection Mode Bar */}
       {selectionMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-16 inset-x-4 z-40 bg-surface/95 border border-line-subtle rounded-2xl p-3 shadow-2xl backdrop-blur-md flex items-center justify-between gap-2 animate-slideUp">
+        <div className="fixed bottom-20 inset-x-4 z-40 bg-surface/95 border border-line-subtle rounded-2xl p-3 shadow-2xl backdrop-blur-md flex items-center justify-between gap-2 animate-slideUp">
           <span className="text-xs font-bold text-content-primary pl-2">
             {selectedIds.length} selected
           </span>
@@ -455,7 +615,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         </div>
       )}
 
-      {/* 5. Message Reader Bottom Sheet */}
+      {/* Message Reader Bottom Sheet */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="w-full bg-surface border-t border-line-subtle rounded-t-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col space-y-4 animate-slideUp overflow-hidden">
@@ -495,7 +655,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
               {extractOtpCode(selectedLog.body) && (
                 <div className="p-3 bg-status-success-bg border border-status-success-border rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-status-success-text font-bold block">VERIFICATION CODE DETECTED</span>
+                    <span className="text-[10px] text-status-success-text font-bold block">VERIFICATION CODE</span>
                     <span className="text-lg font-mono font-black text-status-success-text">
                       {extractOtpCode(selectedLog.body)}
                     </span>
@@ -518,7 +678,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
               {/* Group Assignment Info */}
               <div className="p-3 bg-surface border border-line-subtle rounded-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-content-muted">Current Group:</span>
+                  <span className="text-content-muted">Assigned Category:</span>
                   <span className="font-semibold text-content-primary">
                     {selectedLog.groupName || 'Ungrouped'}
                   </span>
@@ -528,31 +688,9 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                   className="text-brand text-xs font-bold hover:underline flex items-center gap-1"
                 >
                   <FolderInput className="w-3.5 h-3.5" />
-                  <span>Change Group</span>
+                  <span>Change</span>
                 </button>
               </div>
-
-              {/* Routing Telemetry */}
-              {selectedLog.matchedRules && selectedLog.matchedRules.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-[10px] text-content-muted font-bold block uppercase tracking-wider">
-                    Routing Webhooks Dispatched ({selectedLog.matchedRules.length})
-                  </span>
-                  {selectedLog.matchedRules.map((r) => (
-                    <div key={r.ruleId} className="p-2.5 bg-surface border border-line-subtle rounded-xl space-y-1">
-                      <div className="flex items-center justify-between font-mono text-[11px]">
-                        <span className="font-semibold text-content-primary">{r.ruleName}</span>
-                        <span className={r.success ? 'text-status-success-text' : 'text-status-danger-text'}>
-                          HTTP {r.httpStatus} • {r.latencyMs}ms
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-content-muted block truncate font-mono">
-                        {r.targetUrl}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Bottom Actions Bar */}
@@ -567,7 +705,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
                 }}
               >
                 {selectedLog.isRead ? <Mail className="w-4 h-4" /> : <MailOpen className="w-4 h-4" />}
-                <span>{selectedLog.isRead ? 'Mark Unread' : 'Mark Read'}</span>
+                <span>{selectedLog.isRead ? 'Unread' : 'Read'}</span>
               </Button>
 
               <Button
@@ -597,7 +735,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         </div>
       )}
 
-      {/* Move to Group Modal / Sheet */}
+      {/* Move to Group Modal */}
       <MoveToGroupModal
         isOpen={!!movingLogIds}
         onClose={() => setMovingLogIds(null)}
@@ -622,7 +760,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         }}
       />
 
-      {/* Group Create / Edit Modal */}
+      {/* Group Modal */}
       <GroupEditModal
         isOpen={!!isEditingGroup}
         onClose={() => setIsEditingGroup(false)}
@@ -636,6 +774,7 @@ export const MobileMessagesView: React.FC<MobileMessagesViewProps> = ({
         }}
         onDelete={async (id) => {
           await deleteGroup(id);
+          backToCategories();
         }}
       />
     </div>

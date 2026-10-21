@@ -33,6 +33,8 @@ export const SmsManagerTab: React.FC = () => {
         unreadOnly={managerState.unreadOnly}
         setUnreadOnly={managerState.setUnreadOnly}
         unreadCounts={managerState.unreadCounts}
+        messageCounts={managerState.messageCounts}
+        latestMessagePerGroup={managerState.latestMessagePerGroup}
         markAsRead={managerState.markAsRead}
         deleteMessages={managerState.deleteMessages}
         moveMessagesToGroup={managerState.moveMessagesToGroup}
@@ -55,6 +57,8 @@ export const SmsManagerTab: React.FC = () => {
       unreadOnly={managerState.unreadOnly}
       setUnreadOnly={managerState.setUnreadOnly}
       unreadCounts={managerState.unreadCounts}
+      messageCounts={managerState.messageCounts}
+      latestMessagePerGroup={managerState.latestMessagePerGroup}
       selectedMessageId={managerState.selectedMessageId}
       setSelectedMessageId={managerState.setSelectedMessageId}
       selectedMessage={managerState.selectedMessage}

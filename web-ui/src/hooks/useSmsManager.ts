@@ -140,6 +140,33 @@ export function useSmsManager() {
     }
   };
 
+  // Compute Total Message Counts and Latest Message per Group
+  const { messageCounts, latestMessagePerGroup } = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: messages.length,
+      ungrouped: 0
+    };
+    const latest: Record<string, SmsLogDocument> = {};
+
+    groups.forEach((g) => {
+      counts[g.id] = 0;
+    });
+
+    messages.forEach((m) => {
+      const gId = m.groupId || 'ungrouped';
+      counts[gId] = (counts[gId] || 0) + 1;
+
+      if (!latest[gId]) {
+        latest[gId] = m;
+      }
+      if (!latest.all) {
+        latest.all = m;
+      }
+    });
+
+    return { messageCounts: counts, latestMessagePerGroup: latest };
+  }, [groups, messages]);
+
   // Compute Unread Counts
   const unreadCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -328,6 +355,8 @@ export function useSmsManager() {
     selectedMessage,
     filteredMessages,
     unreadCounts,
+    messageCounts,
+    latestMessagePerGroup,
     markAsRead,
     deleteMessages,
     moveMessagesToGroup,
