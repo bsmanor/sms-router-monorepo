@@ -8,12 +8,61 @@ import {
   SmsPayload,
   RuleExecutionResult,
   SmsLogDocument,
-  SecuritySettings
+  SecuritySettings,
+  SmsGroup
 } from './types';
 import { evaluateRule } from './ruleEngine';
 
 admin.initializeApp();
 const db = admin.firestore();
+
+export const DEFAULT_GROUPS: Array<Omit<SmsGroup, 'createdAt' | 'updatedAt'>> = [
+  {
+    id: 'deliveries',
+    name: 'Deliveries',
+    slug: 'deliveries',
+    description: 'Package shipments, courier tracking, and food orders',
+    icon: 'Package',
+    colorTone: 'warning',
+    isDefault: true,
+    order: 1,
+    autoMatchKeywords: [
+      'delivery', 'courier', 'package', 'tracking', 'shipment',
+      'wolt', 'dhl', 'fedex', 'ups', 'amazon', 'post', 'order', 'parcel',
+      'משלוח', 'החבילה', 'שליח', 'הזמנה'
+    ]
+  },
+  {
+    id: 'tickets',
+    name: 'Tickets',
+    slug: 'tickets',
+    description: 'Boarding passes, event admissions, cinema, and transit',
+    icon: 'Ticket',
+    colorTone: 'info',
+    isDefault: true,
+    order: 2,
+    autoMatchKeywords: [
+      'ticket', 'boarding', 'flight', 'cinema', 'seat', 'concert',
+      'booking', 'gate', 'train', 'movie', 'reservation',
+      'כרטיס', 'טיסה', 'רכבת', 'קולנוע', 'הופעה'
+    ]
+  },
+  {
+    id: 'confirmations',
+    name: 'Confirmations',
+    slug: 'confirmations',
+    description: 'One-time passwords, verification codes, and security alerts',
+    icon: 'CheckCircle2',
+    colorTone: 'success',
+    isDefault: true,
+    order: 3,
+    autoMatchKeywords: [
+      'otp', 'code', 'verification', 'verify', 'confirmation', 'security code',
+      'pin', 'password', 'auth', '2fa', 'passcode',
+      'אימות', 'קוד', 'סיסמה', 'אבטחה'
+    ]
+  }
+];
 
 /**
  * Dispatches an HTTP request with custom headers, payload, 10s timeout, and up to 2 retries.
@@ -239,21 +288,62 @@ export const ingestSms = onRequest({ cors: true }, async (req, res) => {
     }
   }
 
-  // 7. Determine Overall Status
+  // 7. Auto-Group Classification
+  let matchedGroupId: string | null = null;
+  let matchedGroupName: string | null = null;
+
+  try {
+    const candidateGroups: Array<{ id: string; name: string; autoMatchKeywords: string[] }> = [];
+    const groupsSnap = await db.collection('sms_groups').orderBy('order', 'asc').get();
+
+    if (!groupsSnap.empty) {
+      groupsSnap.forEach((doc) => {
+        const g = doc.data() as SmsGroup;
+        candidateGroups.push({
+          id: doc.id,
+          name: g.name,
+          autoMatchKeywords: g.autoMatchKeywords || []
+        });
+      });
+    } else {
+      candidateGroups.push(...DEFAULT_GROUPS);
+    }
+
+    const textToMatch = `${sms.sender} ${sms.body}`.toLowerCase();
+    for (const group of candidateGroups) {
+      const hasMatch = (group.autoMatchKeywords || []).some((kw) => {
+        const cleanKw = kw.trim().toLowerCase();
+        return cleanKw.length > 0 && textToMatch.includes(cleanKw);
+      });
+
+      if (hasMatch) {
+        matchedGroupId = group.id;
+        matchedGroupName = group.name;
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn('Auto-group classification error:', err);
+  }
+
+  // 8. Determine Overall Status
   let overallStatus: SmsLogDocument['status'] = 'NO_MATCH';
   if (matchedResults.length > 0) {
     const allSucceeded = matchedResults.every((r) => r.success);
     overallStatus = allSucceeded ? 'PROCESSED' : 'PARTIAL_FAILURE';
   }
 
-  // 8. Persist Log to Firestore
+  // 9. Persist Log to Firestore
   const logDoc: SmsLogDocument = {
     receivedAt,
     deviceId: sms.deviceId || 'UNKNOWN_DEVICE',
     sender: sms.sender,
     body: sms.body,
     matchedRules: matchedResults,
-    status: overallStatus
+    status: overallStatus,
+    groupId: matchedGroupId,
+    groupName: matchedGroupName,
+    isRead: false
   };
 
   let logId = '';
@@ -268,7 +358,9 @@ export const ingestSms = onRequest({ cors: true }, async (req, res) => {
     success: true,
     logId,
     status: overallStatus,
-    matchedCount: matchedResults.length
+    matchedCount: matchedResults.length,
+    groupId: matchedGroupId,
+    groupName: matchedGroupName
   });
 });
 
@@ -503,4 +595,41 @@ export const rotateGatewayCredentials = onCall({ cors: true }, async (request) =
     throw new HttpsError('internal', 'Failed to rotate gateway credentials: ' + err.message);
   }
 });
+
+/**
+ * Callable Function: Ensure default SMS groups (Deliveries, Tickets, Confirmations) exist in Firestore
+ */
+export const seedDefaultGroups = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to seed groups');
+  }
+
+  try {
+    const seeded: string[] = [];
+    const now = Date.now();
+
+    for (const group of DEFAULT_GROUPS) {
+      const docRef = db.collection('sms_groups').doc(group.id);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        await docRef.set({
+          ...group,
+          createdAt: now,
+          updatedAt: now
+        });
+        seeded.push(group.name);
+      }
+    }
+
+    return {
+      success: true,
+      seededCount: seeded.length,
+      seeded
+    };
+  } catch (err: any) {
+    console.error('Error seeding default groups:', err);
+    throw new HttpsError('internal', 'Failed to seed default groups: ' + err.message);
+  }
+});
+
 

@@ -12,6 +12,7 @@ import { RulesManagerTab } from './components/RulesManagerTab';
 import { SimulatorTab } from './components/SimulatorTab';
 import { SetupSecurityTab } from './components/SetupSecurityTab';
 import { ArchitectureTab } from './components/ArchitectureTab';
+import { SmsManagerTab } from './components/sms-manager/SmsManagerTab';
 import { Card, Badge, Button } from './components/ui/Primitives';
 import {
   Radio,
@@ -25,15 +26,16 @@ import {
   Moon,
   Laptop,
   Layers,
-  GitBranch
+  GitBranch,
+  MessageSquare
 } from 'lucide-react';
 
-type Tab = 'logs' | 'rules' | 'simulator' | 'security' | 'architecture';
+type Tab = 'manager' | 'logs' | 'rules' | 'simulator' | 'security' | 'architecture';
 
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [currentTab, setCurrentTab] = useState<Tab>('logs');
+  const [currentTab, setCurrentTab] = useState<Tab>('manager');
   const [authError, setAuthError] = useState<string | null>(null);
 
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -263,8 +265,20 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab Navigation Strip */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-4 border-t border-line-subtle overflow-x-auto">
+        {/* Tab Navigation Strip (Desktop/Tablet) */}
+        <div className="hidden md:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-x-1 sm:space-x-4 border-t border-line-subtle overflow-x-auto">
+          <button
+            onClick={() => setCurrentTab('manager')}
+            className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              currentTab === 'manager'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-content-muted hover:text-content-primary'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>SMS Manager</span>
+          </button>
+
           <button
             onClick={() => setCurrentTab('logs')}
             className={`py-3 px-3 sm:px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
@@ -328,13 +342,67 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-20 md:pb-8">
+        {currentTab === 'manager' && <SmsManagerTab />}
         {currentTab === 'logs' && <LiveLogsTab />}
         {currentTab === 'rules' && <RulesManagerTab />}
         {currentTab === 'simulator' && <SimulatorTab />}
         {currentTab === 'security' && <SetupSecurityTab />}
         {currentTab === 'architecture' && <ArchitectureTab />}
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Dedicated Mobile Web App Experience) */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface/95 border-t border-line-subtle backdrop-blur-md px-2 py-1.5 flex items-center justify-around shadow-lg">
+        <button
+          onClick={() => setCurrentTab('manager')}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            currentTab === 'manager' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+          }`}
+        >
+          <MessageSquare className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Messages</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('logs')}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            currentTab === 'logs' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+          }`}
+        >
+          <Radio className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Telemetry</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('rules')}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            currentTab === 'rules' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+          }`}
+        >
+          <Sliders className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Rules</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('security')}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            currentTab === 'security' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+          }`}
+        >
+          <KeyRound className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Keys</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('architecture')}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            currentTab === 'architecture' ? 'text-brand font-bold' : 'text-content-muted hover:text-content-primary'
+          }`}
+        >
+          <Layers className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Guide</span>
+        </button>
+      </nav>
 
       {/* Footer */}
       <footer className="border-t border-line-subtle bg-surface py-5 text-center text-xs text-content-muted">

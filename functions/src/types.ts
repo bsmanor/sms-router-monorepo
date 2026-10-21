@@ -45,6 +45,20 @@ export interface RuleExecutionResult {
   error: string | null;
 }
 
+export interface SmsGroup {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  colorTone: 'brand' | 'success' | 'warning' | 'info' | 'neutral' | 'danger';
+  isDefault: boolean;
+  order: number;
+  autoMatchKeywords: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface SmsLogDocument {
   id?: string;
   receivedAt: number;
@@ -53,6 +67,11 @@ export interface SmsLogDocument {
   body: string;
   matchedRules: RuleExecutionResult[];
   status: 'PROCESSED' | 'PARTIAL_FAILURE' | 'NO_MATCH' | 'INVALID_SIGNATURE' | 'AUTH_ERROR';
+  groupId?: string | null;
+  groupName?: string | null;
+  isRead?: boolean;
+  deleted?: boolean;
+  deletedAt?: number | null;
 }
 
 export interface SecuritySettings {

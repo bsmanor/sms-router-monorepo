@@ -15,6 +15,10 @@ service cloud.firestore {
     // Document ID: {doc}
     // Description: Received and routed SMS transaction logs
     //
+    // Collection: sms_groups
+    // Document ID: {doc}
+    // Description: SMS group categorization and routing configurations
+    //
     // Collection: settings
     // Document ID: {doc}
     // Description: System, device, and security settings. Sensitive backend-only
@@ -44,6 +48,11 @@ service cloud.firestore {
 
     // Allow authenticated access to SMS logs documents
     match /sms_logs/{doc} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Allow authenticated access to SMS groups documents
+    match /sms_groups/{doc} {
       allow read, write: if isAuthenticated();
     }
 
